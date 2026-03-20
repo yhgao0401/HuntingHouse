@@ -6,7 +6,7 @@
 <title>HuntingHouse</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
-<!-- <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="" onload="initMap()"></script> -->
+
 <style>
 :root {
   --cream:#F7F3EE; --warm-white:#FDFAF7;
@@ -124,6 +124,17 @@ main{max-width:1400px;margin:0 auto;padding:2rem;}
 .all-houses-map-container .leaflet-top,
 .all-houses-map-container .leaflet-bottom,
 .all-houses-map-container .leaflet-control{z-index:150;}
+.photo-upload-wrap{display:flex;flex-direction:column;gap:0;}
+.photo-upload-area{border:2px dashed var(--stone-light);border-radius:10px;padding:.8rem;cursor:pointer;transition:border-color .15s;background:rgba(196,132,90,.03);}
+.photo-upload-area:hover{border-color:var(--clay);}
+.photo-upload-label{display:flex;flex-direction:column;align-items:center;gap:.25rem;cursor:pointer;}
+.photo-upload-icon{font-size:1.6rem;line-height:1;}
+.photo-upload-text{font-size:.82rem;font-weight:600;color:var(--forest);}
+.photo-upload-sub{font-size:.72rem;color:var(--stone);}
+.photo-preview{position:relative;border-radius:10px;overflow:hidden;margin-bottom:.5rem;max-height:160px;display:flex;align-items:center;justify-content:center;background:#000;}
+.photo-preview img{width:100%;max-height:160px;object-fit:cover;display:block;}
+.photo-remove-btn{position:absolute;top:6px;right:6px;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;border:none;font-size:1rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.photo-remove-btn:hover{background:rgba(200,60,60,.8);}
 .card-notes{font-size:.82rem;color:var(--stone);line-height:1.5;margin-bottom:.75rem;font-style:italic;border-left:2px solid var(--clay-light);padding-left:.7rem;}
 .rating-stars{display:flex;gap:.2rem;margin-bottom:.75rem;}
 .star{font-size:1rem;color:var(--clay);}
@@ -463,8 +474,29 @@ main{max-width:1400px;margin:0 auto;padding:2rem;}
         <input class="form-input" id="f-url" placeholder="https://onehome.com/listing/...">
       </div>
       <div class="form-group">
-        <label class="form-label">Photo URL</label>
-        <input class="form-input" id="f-photo" placeholder="https://...image.jpg">
+        <label class="form-label">House Photo</label>
+        <div class="photo-upload-wrap" id="photoUploadWrap">
+          <div class="photo-preview" id="photoPreview" style="display:none;">
+            <img id="photoPreviewImg" src="" alt="preview">
+            <button type="button" class="photo-remove-btn" onclick="clearPhoto()" title="Remove photo">&times;</button>
+          </div>
+          <div class="photo-upload-area" id="photoUploadArea">
+            <label for="photoFileInput" class="photo-upload-label">
+              <span class="photo-upload-icon">&#128247;</span>
+              <span class="photo-upload-text">Click to upload photo</span>
+              <span class="photo-upload-sub">JPG, PNG, WEBP &mdash; max 3 MB</span>
+            </label>
+            <input type="file" id="photoFileInput" accept="image/jpeg,image/png,image/webp,image/gif"
+              style="display:none;" onchange="handlePhotoFile(this)">
+          </div>
+          <div style="display:flex;align-items:center;gap:.5rem;margin-top:.5rem;">
+            <div style="flex:1;height:1px;background:var(--stone-light);opacity:.5;"></div>
+            <span style="font-size:.72rem;color:var(--stone);white-space:nowrap;">or paste URL</span>
+            <div style="flex:1;height:1px;background:var(--stone-light);opacity:.5;"></div>
+          </div>
+          <input class="form-input" id="f-photo" placeholder="https://...image.jpg"
+            style="margin-top:.4rem;" oninput="handlePhotoUrl(this.value)">
+        </div>
       </div>
       <div class="form-group" id="mapPreviewWrap">
         <label class="form-label">Location</label>
@@ -1002,7 +1034,7 @@ function cardHTML(h){
   var sLabels = {available:'Available',pending:'Pending',sold:'Sold',withdrawn:'Withdrawn'};
   var selStatus = ['available','pending','sold','withdrawn'].indexOf(h.status) !== -1 ? h.status : 'available';
   var emoji = '&#127968;';
-  var stars = h.rating ? '&#9733;'.repeat(h.rating)+'&#9734;'.repeat(5-h.rating) : '';
+  var stars = h.rating ? '★'.repeat(h.rating)+'☆'.repeat(5-h.rating) : '';
   var tagList = normalizeTagList(h.tags);
   var tagsHTML = tagList.map(function(t){ var c = (t.c||'default'); return '<span class="tag tag-'+c+'">'+escapeHtml(t.t||t)+'</span>'; }).join('');
   var imgHTML = h.photo
@@ -1061,7 +1093,7 @@ function cardHTML(h){
       '</div>'+
       directionsHTML+
       scalesHTML+
-      (stars?'<div class="rating-stars"><span class="star">'+stars.split('').join('</span><span class="star">')+'</span></div>':'')+
+      (stars?'<div class="rating-stars">'+stars+'</div>':'')+
       (tagsHTML?'<div class="card-tags">'+tagsHTML+'</div>':'')+
       visitBadges+
       (h.notes?'<div class="card-notes">'+h.notes+'</div>':'')+
@@ -1301,12 +1333,16 @@ function openModal(house){
   editingId=house?house.id:null;
   tempTags=house?normalizeTagList(house.tags||[]).slice():[];
   tempRating=house?(house.rating||0):0;
-  selectedPhotoUrl='';
+  selectedPhotoUrl = house && house.photo ? house.photo : '';
   document.getElementById('modalTitle').textContent=house?'Edit House':'Add New House';
-  ['address','city','statezip','price','beds','baths','sqft','year','lot','hoa','url','photo','notes'].forEach(function(f){
+  ['address','city','statezip','price','beds','baths','sqft','year','lot','hoa','url','notes'].forEach(function(f){
     var el=document.getElementById('f-'+f);
     if(el) el.value=house?(house[f]||''):'';
   });
+  // Set photo input + preview
+  var fPhoto = document.getElementById('f-photo');
+  if(fPhoto) fPhoto.value = (house && house.photo && !house.photo.startsWith('data:')) ? house.photo : '';
+  if(selectedPhotoUrl){ showPhotoPreview(selectedPhotoUrl); } else { clearPhoto(); }
   document.getElementById('f-status').value=house?house.status:'available';
   document.getElementById('f-garage').value=house?(house.garage||''):'';
   document.getElementById('f-livingRoomFacing').value=house?(house.livingRoomFacing||''):'';
@@ -1335,7 +1371,7 @@ function openModal(house){
 }
 function closeModal(){
   document.getElementById('modalOverlay').classList.remove('open');
-  editingId=null;tempTags=[];tempRating=0;tempBackyard=0;tempNeighborhood=0;selectedPhotoUrl='';
+  editingId=null;tempTags=[];tempRating=0;tempBackyard=0;tempNeighborhood=0;selectedPhotoUrl='';clearPhoto();
   document.querySelectorAll('.prefilled').forEach(function(el){el.classList.remove('prefilled');});
   if(modalMap){ try{ modalMap.remove(); }catch(e){} modalMap=null; }
 }
@@ -1387,6 +1423,45 @@ function updateModalMap(){
       _modalMarker = L.marker([parseFloat(nLat), parseFloat(nLon)]).addTo(modalMap);
     });
   }, 80);
+}
+function handlePhotoFile(input){
+  var file = input.files && input.files[0];
+  if(!file) return;
+  if(file.size > 3 * 1024 * 1024){
+    showToast('Photo too large — max 3 MB'); input.value=''; return;
+  }
+  var reader = new FileReader();
+  reader.onload = function(e){
+    var dataUrl = e.target.result;
+    selectedPhotoUrl = dataUrl;
+    document.getElementById('f-photo').value = '';
+    showPhotoPreview(dataUrl);
+  };
+  reader.readAsDataURL(file);
+}
+function handlePhotoUrl(url){
+  if(!url){ clearPhoto(); return; }
+  selectedPhotoUrl = url;
+  showPhotoPreview(url);
+}
+function showPhotoPreview(src){
+  var preview = document.getElementById('photoPreview');
+  var img     = document.getElementById('photoPreviewImg');
+  var area    = document.getElementById('photoUploadArea');
+  if(!preview || !img) return;
+  img.src = src;
+  preview.style.display = 'flex';
+  area.style.display    = 'none';
+}
+function clearPhoto(){
+  selectedPhotoUrl = '';
+  document.getElementById('f-photo').value = '';
+  var fi = document.getElementById('photoFileInput');
+  if(fi) fi.value = '';
+  var preview = document.getElementById('photoPreview');
+  var area    = document.getElementById('photoUploadArea');
+  if(preview) preview.style.display = 'none';
+  if(area)    area.style.display    = 'block';
 }
 function clearModalPin(){
   modalCoordsExplicitlyCleared = true;
@@ -1480,7 +1555,7 @@ function doSaveHouse(){
     hoa:document.getElementById('f-hoa').value.trim(),
     garage:document.getElementById('f-garage').value,
     url:document.getElementById('f-url').value.trim(),
-    photo:document.getElementById('f-photo').value.trim(),
+    photo:selectedPhotoUrl || document.getElementById('f-photo').value.trim(),
     notes:document.getElementById('f-notes').value.trim(),
     livingRoomFacing:document.getElementById('f-livingRoomFacing').value||'',
     mainBedroomFacing:document.getElementById('f-mainBedroomFacing').value||'',
@@ -1661,7 +1736,7 @@ function setRating(val){
   tempRating=val;
   document.querySelectorAll('.rating-star').forEach(function(s){
     var v=parseInt(s.getAttribute('data-v'));
-    s.innerHTML=v<=val?'&#9733;':'&#9734;';
+    s.innerHTML=v<=val?'★':'☆';
     s.style.color=v<=val?'var(--clay)':'var(--stone-light)';
   });
 }
@@ -1742,51 +1817,27 @@ function scrapeZillowHtml(html){
   return out;
 }
 function importFromZillow(){
-  var urlInput = document.getElementById('zillowUrlInput').value.trim();
+  var urlInput=document.getElementById('zillowUrlInput').value.trim();
   if(!urlInput){ alert('Please paste a Zillow listing URL.'); return; }
-  
-  // 1. FIX: Automatically clean up messy or "double-pasted" URLs
-  var cleanMatch = urlInput.match(/(https?:\/\/[^\s]+)/);
-  var url = cleanMatch ? cleanMatch[0] : urlInput;
-  
-  var doubleHttp = url.lastIndexOf('http');
-  if (doubleHttp > 0) {
-      url = url.substring(doubleHttp); // Takes only the second valid link
-  }
-
+  var url=urlInput;
   if(url.indexOf('http')!==0) url='https://'+url.replace(/^www\./,'www.');
-  if(url.indexOf('zillow.com')===-1){ alert('URL should be a Zillow listing.'); return; }
-
+  if(url.indexOf('zillow.com')===-1){ alert('URL should be a Zillow listing (e.g. zillow.com/homedetails/...).'); return; }
   var statusEl=document.getElementById('zillowImportStatus');
   var btn=document.getElementById('zillowImportBtn');
   statusEl.className='import-status loading';
   statusEl.textContent='Parsing URL and fetching listing...';
   btn.disabled=true;
-
-  // 2. Parse address from URL immediately (Works 100% of the time, bypasses Zillow blocks)
   var parsed=parseZillowAddressFromUrl(url);
   if(parsed){
     document.getElementById('f-address').value=parsed.address||'';
     document.getElementById('f-city').value=parsed.city||'';
     document.getElementById('f-statezip').value=parsed.statezip||'';
     document.getElementById('f-url').value=url;
-    ['f-address','f-city','f-statezip','f-url'].forEach(function(id){ 
-        var el=document.getElementById(id); if(el) el.classList.add('prefilled'); 
-    });
+    ['f-address','f-city','f-statezip','f-url'].forEach(function(id){ var el=document.getElementById(id); if(el) el.classList.add('prefilled'); });
   }
-
-  // 3. FIX: Use the /get endpoint which safely handles CORS errors
-  var proxyUrl='https://api.allorigins.win/get?url='+encodeURIComponent(url);
-  
-  fetch(proxyUrl)
-  .then(function(r){ 
-      if(!r.ok) throw new Error("Proxy connection failed");
-      return r.json(); 
-  })
-  .then(function(data){
-    var html = data.contents; // The HTML is safely packed inside this JSON field
-    if(!html) throw new Error("Empty response");
-
+  var proxyUrl='https://api.allorigins.win/raw?url='+encodeURIComponent(url);
+  fetch(proxyUrl).then(function(r){ return r.text(); })
+  .then(function(html){
     var scraped=scrapeZillowHtml(html);
     if(scraped.price) document.getElementById('f-price').value=scraped.price;
     if(scraped.beds) document.getElementById('f-beds').value=scraped.beds;
@@ -1802,9 +1853,9 @@ function importFromZillow(){
     }
     statusEl.className='import-status success';
     var msg='Address and listing details filled.';
-    if(scraped.photos&&scraped.photos.length) msg+=' First photo set.';
-    statusEl.textContent=msg+' Resolving map location…';
-    
+    if(scraped.photos&&scraped.photos.length) msg+=' First photo set (Zillow URLs may expire or not load).';
+    var msgTailResolve = ' Resolving map location…';
+    statusEl.textContent=msg+msgTailResolve;
     var geoParsed = parsed || parseZillowAddressFromUrl(url);
     if(geoParsed && (geoParsed.slug || geoParsed.address)){
       fetchCoordsForAddress(geocodeQueriesFromZillowParsed(geoParsed), function(lat, lon){
@@ -1812,31 +1863,28 @@ function importFromZillow(){
           applyCoordsToForm(lat, lon);
           statusEl.textContent = msg+' Map location found.';
         } else {
-          statusEl.textContent = msg+' Could not geocode from URL; use "Look up".';
+          statusEl.textContent = msg+' Could not geocode from URL; use "Look up" or set pin on map.';
         }
         updateModalMap();
       });
     } else updateModalMap();
   })
   .catch(function(e){
-    // 4. FIX: Graceful Fallback - If Zillow blocks the proxy, we still keep the parsed address!
     if(parsed){
       statusEl.className='import-status success';
-      statusEl.textContent='Address filled from link. Zillow blocked data scan. Resolving map...';
+      statusEl.textContent='Address and URL filled from link. Could not fetch full page (Zillow may block). Resolving map location…';
       fetchCoordsForAddress(geocodeQueriesFromZillowParsed(parsed), function(lat, lon){
         if(lat != null && lon != null){
           applyCoordsToForm(lat, lon);
-          statusEl.textContent='Address filled; map location found. Zillow blocked full data scan.';
+          statusEl.textContent='Address from URL; map location found. Listing details may be incomplete.';
         } else {
-          statusEl.textContent='Address filled. Map not found. Please use "Look up".';
+          statusEl.textContent='Address from URL; map location not found — use "Look up" or place pin manually.';
         }
         updateModalMap();
       });
-    } else { 
-        statusEl.className='import-status error'; 
-        statusEl.textContent='Could not parse URL. Zillow blocked the request.'; 
     }
-    console.error("Zillow Error Handled Gracefully:", e);
+    else{ statusEl.className='import-status error'; statusEl.textContent='Could not parse URL or fetch page. Paste a full Zillow homedetails URL and try again.'; }
+    console.error(e);
   })
   .finally(function(){ btn.disabled=false; });
 }
@@ -2024,8 +2072,6 @@ try{
 }catch(e){}
 </script>
 
-
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="" onload="initMap()"></script>
-
 </body>
 </html>
