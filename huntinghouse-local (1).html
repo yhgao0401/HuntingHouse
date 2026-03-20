@@ -1,0 +1,1957 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HuntingHouse</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+<!-- <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="" onload="initMap()"></script> -->
+<style>
+:root {
+  --cream:#F7F3EE; --warm-white:#FDFAF7;
+  --clay:#C4845A; --clay-dark:#A06840; --clay-light:#E8C4A8;
+  --forest:#2D4A3E; --forest-light:#3D6455;
+  --stone:#8A8278; --stone-light:#C8C2BA;
+  --ink:#1C1917; --ink-soft:#44403C;
+  --available:#4A7C59; --pending:#C4845A;
+  --visit-blue:#5B7FA6; --visit-green:#4A7C59;
+  --tag-default:#8A8278; --tag-positive:#4A7C59; --tag-orange:#C4845A; --tag-red:#c04040; --tag-darkred:#8B0000;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--ink);min-height:100vh;}
+
+/* HEADER */
+header{background:var(--forest);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;height:64px;position:sticky;top:0;z-index:100;box-shadow:0 2px 20px rgba(0,0,0,.15);}
+.logo{font-family:'DM Serif Display',serif;color:var(--cream);font-size:1.5rem;display:flex;align-items:center;gap:.5rem;}
+.hdr-actions{display:flex;gap:.75rem;align-items:center;}
+.btn{padding:.5rem 1.25rem;border-radius:6px;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:.875rem;font-weight:500;transition:all .2s;}
+.btn-primary{background:var(--clay);color:#fff;}
+.btn-primary:hover{background:var(--clay-dark);transform:translateY(-1px);}
+.btn-ghost{background:transparent;color:var(--cream);border:1px solid rgba(255,255,255,.3);}
+.btn-ghost:hover{background:rgba(255,255,255,.1);}
+.auth-wrap{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
+.auth-user{font-size:.78rem;color:rgba(255,255,255,.85);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+/* TABS */
+.tab-bar{background:var(--forest);padding:0 2rem;display:flex;align-items:flex-end;}
+.tab-btn{padding:.65rem 1.4rem;background:transparent;border:none;color:rgba(255,255,255,.55);font-family:'DM Sans',sans-serif;font-size:.875rem;font-weight:500;cursor:pointer;border-bottom:3px solid transparent;transition:all .2s;display:flex;align-items:center;gap:.4rem;}
+.tab-btn:hover{color:rgba(255,255,255,.85);}
+.tab-btn.active{color:#fff;border-bottom-color:var(--clay);}
+.tab-badge{background:var(--clay);color:#fff;border-radius:100px;font-size:.65rem;font-weight:700;padding:.1rem .45rem;min-width:18px;text-align:center;}
+.tab-badge.blue{background:var(--visit-blue);}
+.tab-badge.grey{background:var(--stone);}
+
+/* FILTERS */
+.filters-bar{background:var(--warm-white);border-bottom:1px solid var(--stone-light);padding:.75rem 2rem;display:flex;gap:1rem;align-items:center;flex-wrap:wrap;}
+.filter-label{font-size:.8rem;color:var(--stone);font-weight:500;text-transform:uppercase;letter-spacing:.08em;}
+.filter-chips{display:flex;gap:.5rem;flex-wrap:wrap;}
+.chip{padding:.3rem .9rem;border-radius:100px;border:1.5px solid var(--stone-light);background:transparent;color:var(--ink-soft);font-size:.8rem;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all .15s;}
+.chip:hover{border-color:var(--clay);color:var(--clay);}
+.chip.active{background:var(--clay);border-color:var(--clay);color:#fff;}
+.search-input{margin-left:auto;padding:.4rem .9rem;border:1.5px solid var(--stone-light);border-radius:6px;font-family:'DM Sans',sans-serif;font-size:.875rem;background:var(--cream);color:var(--ink);width:220px;outline:none;transition:border-color .2s;}
+.search-input:focus{border-color:var(--clay);}
+.sort-select{padding:.4rem .7rem;border:1.5px solid var(--stone-light);border-radius:6px;font-family:'DM Sans',sans-serif;font-size:.8rem;background:var(--cream);color:var(--ink-soft);outline:none;cursor:pointer;}
+
+/* MAIN */
+main{max-width:1400px;margin:0 auto;padding:2rem;}
+.summary-bar{display:flex;gap:1.5rem;margin-bottom:1.75rem;flex-wrap:wrap;}
+.stat-pill{background:var(--warm-white);border:1px solid var(--stone-light);border-radius:8px;padding:.6rem 1.2rem;display:flex;align-items:center;gap:.5rem;}
+.stat-dot{width:8px;height:8px;border-radius:50%;}
+.stat-pill .count{font-weight:600;font-size:1rem;}
+.stat-pill .label{font-size:.8rem;color:var(--stone);}
+
+/* GRID */
+.houses-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:1.5rem;}
+
+/* CARD */
+.house-card{background:var(--warm-white);border-radius:12px;overflow:hidden;border:1px solid var(--stone-light);transition:all .25s;position:relative;}
+.house-card:hover{transform:translateY(-3px);box-shadow:0 12px 40px rgba(44,74,62,.12);border-color:var(--clay-light);}
+.house-card.discarded-card{opacity:.65;filter:grayscale(.5);}
+.house-card.discarded-card:hover{transform:none;box-shadow:none;}
+.card-image{height:180px;background:linear-gradient(135deg,var(--forest) 0%,var(--forest-light) 100%);position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:3rem;}
+.card-image img{width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;}
+.status-row{position:absolute;top:12px;left:12px;right:48px;display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;}
+.status-badge{padding:.25rem .7rem;border-radius:100px;font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;backdrop-filter:blur(8px);flex-shrink:0;}
+.status-available{background:rgba(74,124,89,.9);color:#fff;}
+.status-pending{background:rgba(196,132,90,.9);color:#fff;}
+.status-sold{background:rgba(138,130,120,.85);color:#fff;}
+.status-withdrawn{background:rgba(160,80,80,.9);color:#fff;}
+.status-discarded{background:rgba(100,100,100,.85);color:#fff;}
+.visit-status-badge{padding:.2rem .55rem;border-radius:100px;font-size:.65rem;font-weight:600;backdrop-filter:blur(8px);white-space:nowrap;}
+.visit-status-badge.upcoming{background:rgba(91,127,166,.9);color:#fff;}
+.visit-status-badge.visited{background:rgba(74,124,89,.85);color:#fff;}
+.visit-status-badge.overdue{background:rgba(196,80,80,.9);color:#fff;}
+.fav-btn{position:absolute;top:10px;right:12px;background:rgba(255,255,255,.85);border:none;border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:1rem;transition:all .2s;backdrop-filter:blur(4px);}
+.fav-btn:hover{transform:scale(1.15);}
+.src-link{display:inline-flex;align-items:center;gap:.3rem;font-size:.75rem;color:var(--forest-light);text-decoration:none;font-weight:500;position:absolute;bottom:10px;right:12px;background:rgba(255,255,255,.85);padding:.2rem .6rem;border-radius:100px;backdrop-filter:blur(4px);transition:background .15s;}
+.src-link:hover{background:#fff;}
+.card-body{padding:1.1rem 1.25rem;}
+.card-address{font-family:'DM Serif Display',serif;font-size:1.05rem;color:var(--ink);margin-bottom:.2rem;line-height:1.3;}
+.card-location{font-size:.8rem;color:var(--stone);margin-bottom:.75rem;}
+.card-price{font-size:1.3rem;font-weight:600;color:var(--clay-dark);margin-bottom:.75rem;}
+.card-specs{display:flex;gap:1rem;margin-bottom:.75rem;flex-wrap:wrap;}
+.spec{display:flex;align-items:center;gap:.3rem;font-size:.82rem;color:var(--ink-soft);}
+.card-directions{display:flex;flex-wrap:wrap;gap:.6rem;margin-bottom:.5rem;font-size:.78rem;color:var(--ink-soft);}
+.card-direction{display:flex;align-items:center;gap:.25rem;}
+.card-direction span:first-child{color:var(--stone);}
+.card-scales{display:flex;gap:.75rem;margin-bottom:.5rem;font-size:.78rem;}
+.card-scale{display:flex;align-items:center;gap:.3rem;}
+.card-scale-label{color:var(--stone);}
+.card-scale-dots{display:flex;gap:.15rem;}
+.card-scale-dot{width:6px;height:6px;border-radius:50%;background:var(--stone-light);}
+.card-scale-dot.filled{background:var(--clay);}
+.card-tags{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.75rem;}
+.tag{padding:.2rem .6rem;border-radius:100px;font-size:.72rem;color:#fff;border:none;}
+.tag.tag-default{background:var(--tag-default);color:#fff;}
+.tag.tag-positive{background:var(--tag-positive);}
+.tag.tag-orange{background:var(--tag-orange);color:#fff;}
+.tag.tag-red{background:var(--tag-red);color:#fff;}
+.tag.tag-darkred{background:var(--tag-darkred);color:#fff;}
+.card-map-wrap{height:100px;border-radius:8px;overflow:hidden;margin-bottom:.6rem;background:var(--stone-light);position:relative;}
+.card-map-wrap{position:relative;}
+.card-map-inner{width:100%;height:100%;min-height:100px;}
+.card-map-wrap .leaflet-map{width:100%;height:100%;}
+.card-map-link{position:absolute;bottom:4px;right:4px;font-size:.65rem;background:rgba(255,255,255,.9);padding:.15rem .4rem;border-radius:4px;color:var(--forest);text-decoration:none;z-index:10;}
+.card-map-link:hover{background:#fff;}
+.all-houses-map-wrap{margin-bottom:1.5rem;}
+.map-section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;}
+.map-section-title{font-family:'DM Serif Display',serif;font-size:1rem;color:var(--forest);}
+.map-toggle-btn{font-size:.8rem;color:var(--forest);background:var(--cream);border:1.5px solid var(--stone-light);border-radius:6px;padding:.35rem .75rem;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
+.map-toggle-btn:hover{border-color:var(--clay);color:var(--clay);}
+.all-houses-map-container{height:320px;border-radius:12px;overflow:hidden;border:1px solid var(--stone-light);background:var(--stone-light);}
+.all-houses-map-container .leaflet-pane{z-index:100;}
+.all-houses-map-container .leaflet-top,
+.all-houses-map-container .leaflet-bottom,
+.all-houses-map-container .leaflet-control{z-index:150;}
+.card-notes{font-size:.82rem;color:var(--stone);line-height:1.5;margin-bottom:.75rem;font-style:italic;border-left:2px solid var(--clay-light);padding-left:.7rem;}
+.rating-stars{display:flex;gap:.2rem;margin-bottom:.75rem;}
+.star{font-size:1rem;color:var(--clay);}
+.visit-strip{margin-bottom:.75rem;display:flex;flex-direction:column;gap:.3rem;}
+.visit-badge{display:inline-flex;align-items:center;gap:.4rem;font-size:.78rem;font-weight:500;padding:.28rem .65rem;border-radius:6px;width:fit-content;}
+.visit-badge.upcoming{background:rgba(91,127,166,.12);color:var(--visit-blue);border:1px solid rgba(91,127,166,.3);}
+.visit-badge.visited{background:rgba(74,124,89,.1);color:var(--visit-green);border:1px solid rgba(74,124,89,.25);}
+.visit-badge.overdue{background:rgba(196,80,80,.1);color:#c04040;border:1px solid rgba(196,80,80,.25);}
+.discard-reason{font-size:.8rem;color:var(--stone);background:var(--cream);border:1px solid var(--stone-light);border-radius:6px;padding:.4rem .7rem;margin-bottom:.75rem;}
+.card-footer{display:flex;gap:.4rem;border-top:1px solid var(--stone-light);padding-top:.85rem;flex-wrap:wrap;}
+.card-btn{flex:1;min-width:56px;padding:.45rem .35rem;border:1.5px solid var(--stone-light);background:transparent;border-radius:6px;font-family:'DM Sans',sans-serif;font-size:.76rem;color:var(--ink-soft);cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:.25rem;white-space:nowrap;}
+.card-btn:hover{border-color:var(--clay);color:var(--clay);background:rgba(196,132,90,.05);}
+.card-btn.danger:hover{border-color:#c0392b;color:#c0392b;}
+.card-btn.blue:hover{border-color:var(--visit-blue);color:var(--visit-blue);}
+.card-btn.restore:hover{border-color:var(--available);color:var(--available);}
+.card-status-wrap{flex:1;min-width:100px;display:flex;align-items:stretch;}
+.card-status-select{flex:1;width:100%;padding:.4rem .35rem;border:1.5px solid var(--stone-light);border-radius:6px;font-family:'DM Sans',sans-serif;font-size:.72rem;font-weight:500;color:var(--ink-soft);background:var(--cream);cursor:pointer;outline:none;transition:border-color .15s, color .15s;}
+.card-status-select:hover,.card-status-select:focus{border-color:var(--clay);color:var(--clay);}
+
+/* EMPTY */
+.empty-state{grid-column:1/-1;text-align:center;padding:5rem 2rem;color:var(--stone);}
+.empty-icon{font-size:4rem;margin-bottom:1rem;opacity:.5;}
+.empty-title{font-family:'DM Serif Display',serif;font-size:1.5rem;color:var(--ink-soft);margin-bottom:.5rem;}
+.empty-sub{font-size:.9rem;margin-bottom:1.5rem;}
+
+/* VISIT LIST */
+.visit-section-title{font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--forest);padding:.5rem 0;border-bottom:2px solid var(--stone-light);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem;}
+.visit-list{display:flex;flex-direction:column;gap:.75rem;margin-bottom:2rem;}
+.visit-row{background:var(--warm-white);border:1px solid var(--stone-light);border-radius:10px;padding:1rem 1.25rem;display:flex;align-items:center;gap:1rem;transition:box-shadow .2s;flex-wrap:wrap;}
+.visit-row:hover{box-shadow:0 4px 16px rgba(44,74,62,.08);}
+.visit-row.overdue-row{border-color:rgba(196,80,80,.35);background:rgba(196,80,80,.02);}
+.visit-row-emoji{font-size:1.8rem;flex-shrink:0;}
+.visit-row-info{flex:1;min-width:140px;}
+.visit-row-address{font-weight:600;font-size:.95rem;color:var(--ink);}
+.visit-row-sub{font-size:.8rem;color:var(--stone);margin-top:.15rem;}
+.visit-row-date{font-size:.82rem;font-weight:600;padding:.3rem .8rem;border-radius:6px;white-space:nowrap;flex-shrink:0;}
+.visit-row-date.upcoming{background:rgba(91,127,166,.12);color:var(--visit-blue);}
+.visit-row-date.visited{background:rgba(74,124,89,.1);color:var(--visit-green);}
+.visit-row-date.overdue{background:rgba(196,80,80,.1);color:#c04040;}
+.visit-row-actions{display:flex;gap:.4rem;flex-shrink:0;}
+.visit-action-btn{padding:.3rem .7rem;border:1.5px solid var(--stone-light);background:transparent;border-radius:6px;font-family:'DM Sans',sans-serif;font-size:.75rem;color:var(--ink-soft);cursor:pointer;transition:all .15s;}
+.visit-action-btn:hover{border-color:var(--clay);color:var(--clay);}
+.visit-action-btn.mark-done:hover{border-color:var(--visit-green);color:var(--visit-green);}
+.visit-day-folder{background:var(--warm-white);border:1px solid var(--stone-light);border-radius:10px;overflow:hidden;}
+.visit-day-folder summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.75rem 1rem;background:rgba(138,130,120,.08);font-weight:600;color:var(--ink-soft);}
+.visit-day-folder summary::-webkit-details-marker{display:none;}
+.visit-day-folder summary::before{content:'\25B8';color:var(--stone);margin-right:.45rem;transition:transform .2s ease;}
+.visit-day-folder[open] summary::before{transform:rotate(90deg);}
+.visit-day-folder-title{display:flex;align-items:center;gap:.5rem;}
+.visit-day-count{font-size:.76rem;font-weight:500;color:var(--stone);}
+.visit-day-items{padding:.7rem;display:flex;flex-direction:column;gap:.6rem;}
+
+/* DISCARD PAGE */
+.discard-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;}
+.discard-clear-btn{font-size:.8rem;color:var(--stone);background:none;border:1px solid var(--stone-light);border-radius:6px;padding:.35rem .85rem;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
+.discard-clear-btn:hover{color:#c0392b;border-color:#c0392b;}
+
+/* MODALS */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(28,25,23,.6);backdrop-filter:blur(4px);z-index:3000;align-items:center;justify-content:center;padding:1rem;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--warm-white);border-radius:16px;width:100%;max-width:600px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,.25);animation:slideUp .25s ease;}
+.modal.sm{max-width:440px;}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.modal-header{padding:1.5rem 1.75rem 1rem;border-bottom:1px solid var(--stone-light);display:flex;align-items:center;justify-content:space-between;}
+.modal-title{font-family:'DM Serif Display',serif;font-size:1.3rem;color:var(--forest);}
+.modal-close{background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--stone);padding:.25rem;border-radius:4px;line-height:1;transition:color .15s;}
+.modal-close:hover{color:var(--ink);}
+.modal-body{padding:1.5rem 1.75rem;}
+.modal-sub{font-size:.88rem;color:var(--stone);margin-bottom:1.25rem;line-height:1.6;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+.form-group{margin-bottom:1rem;}
+.form-label{display:block;font-size:.8rem;font-weight:500;color:var(--stone);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.4rem;}
+.form-input,.form-select,.form-textarea{width:100%;padding:.6rem .85rem;border:1.5px solid var(--stone-light);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.9rem;background:var(--cream);color:var(--ink);outline:none;transition:border-color .2s;}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--clay);}
+.form-textarea{resize:vertical;min-height:80px;}
+.form-input.prefilled{border-color:rgba(74,124,89,.5);background:rgba(74,124,89,.04);}
+.tag-input-wrap{display:flex;flex-wrap:wrap;gap:.4rem;padding:.5rem;border:1.5px solid var(--stone-light);border-radius:8px;background:var(--cream);min-height:44px;align-items:center;cursor:text;transition:border-color .2s;}
+.tag-input-wrap:focus-within{border-color:var(--clay);}
+.tag-chip{display:flex;align-items:center;gap:.3rem;padding:.2rem .5rem;border-radius:100px;font-size:.78rem;font-weight:500;color:#fff;}
+.tag-chip button{background:none;border:none;color:inherit;cursor:pointer;padding:0;font-size:.85rem;line-height:1;opacity:.9;}
+.tag-chip.tag-default{background:var(--tag-default);}
+.tag-chip.tag-positive{background:var(--tag-positive);}
+.tag-chip.tag-orange{background:var(--tag-orange);}
+.tag-chip.tag-red{background:var(--tag-red);}
+.tag-chip.tag-darkred{background:var(--tag-darkred);}
+.tag-text-input{border:none;background:transparent;outline:none;font-family:'DM Sans',sans-serif;font-size:.85rem;color:var(--ink);min-width:80px;flex:1;}
+.tag-color-select{padding:.25rem .5rem;border:1.5px solid var(--stone-light);border-radius:6px;font-size:.75rem;background:var(--cream);cursor:pointer;}
+.scale-row{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
+.scale-row .scale-dots{display:flex;gap:.2rem;}
+.scale-row .scale-dot{width:22px;height:22px;border-radius:50%;border:2px solid var(--stone-light);background:transparent;cursor:pointer;font-size:.65rem;display:flex;align-items:center;justify-content:center;color:var(--stone);}
+.scale-row .scale-dot.filled,.scale-row .scale-dot:hover{background:var(--clay);border-color:var(--clay);color:#fff;}
+.modal .card-map-wrap{height:140px;}
+.modal-footer{padding:1rem 1.75rem 1.5rem;display:flex;gap:.75rem;justify-content:flex-end;}
+.btn-cancel{background:transparent;border:1.5px solid var(--stone-light);color:var(--ink-soft);padding:.6rem 1.5rem;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.9rem;cursor:pointer;transition:all .15s;}
+.btn-cancel:hover{border-color:var(--stone);}
+.btn-save{background:var(--forest);color:#fff;border:none;padding:.6rem 1.75rem;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.9rem;font-weight:500;cursor:pointer;transition:all .2s;}
+.btn-save:hover{background:var(--forest-light);transform:translateY(-1px);}
+.btn-discard-confirm{background:#c0392b;color:#fff;border:none;padding:.6rem 1.75rem;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.9rem;font-weight:500;cursor:pointer;}
+.btn-discard-confirm:hover{background:#a93226;}
+
+/* IMPORT BOX */
+.import-box{background:linear-gradient(135deg,rgba(45,74,62,.06),rgba(196,132,90,.06));border:1.5px dashed var(--clay-light);border-radius:10px;padding:1.1rem 1.25rem;margin-bottom:1.25rem;}
+.import-box-title{font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--forest);margin-bottom:.6rem;display:flex;align-items:center;gap:.4rem;}
+.import-box-title span{font-weight:400;text-transform:none;letter-spacing:0;color:var(--stone);}
+.import-row{display:flex;gap:.6rem;align-items:center;}
+.import-input{flex:1;padding:.55rem .85rem;border:1.5px solid var(--stone-light);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.88rem;background:var(--warm-white);color:var(--ink);outline:none;transition:border-color .2s;}
+.import-input:focus{border-color:var(--clay);}
+.btn-lookup{padding:.55rem 1.1rem;background:var(--forest);color:#fff;border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.85rem;font-weight:500;cursor:pointer;transition:all .2s;white-space:nowrap;display:flex;align-items:center;gap:.4rem;}
+.btn-lookup:hover{background:var(--forest-light);}
+.btn-lookup:disabled{opacity:.6;cursor:not-allowed;}
+.import-status{margin-top:.6rem;font-size:.8rem;border-radius:6px;padding:.4rem .7rem;display:none;}
+.import-status.loading{display:block;color:var(--stone);background:var(--cream);}
+.import-status.success{display:block;color:var(--available);background:rgba(74,124,89,.08);border:1px solid rgba(74,124,89,.2);}
+.import-status.error{display:block;color:#c04040;background:rgba(196,80,80,.07);border:1px solid rgba(196,80,80,.2);}
+
+/* PHOTO GALLERY */
+.photo-gallery-wrap{margin-top:.85rem;display:none;}
+.photo-gallery-label{font-size:.78rem;font-weight:600;color:var(--forest);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.5rem;display:flex;align-items:center;gap:.4rem;}
+.photo-gallery-label span{font-weight:400;text-transform:none;letter-spacing:0;color:var(--stone);}
+.photo-gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:.5rem;}
+.photo-thumb{position:relative;aspect-ratio:4/3;border-radius:7px;overflow:hidden;cursor:pointer;border:2.5px solid transparent;transition:all .18s;background:var(--stone-light);}
+.photo-thumb img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .2s;}
+.photo-thumb:hover{border-color:var(--clay);transform:scale(1.03);}
+.photo-thumb:hover img{transform:scale(1.05);}
+.photo-thumb.selected{border-color:var(--available);box-shadow:0 0 0 2px rgba(74,124,89,.3);}
+.photo-check{position:absolute;top:4px;right:4px;background:var(--available);color:#fff;border-radius:50%;width:20px;height:20px;display:none;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;}
+.photo-thumb.selected .photo-check{display:flex;}
+.photo-broken{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:var(--stone-light);background:var(--cream);}
+.photo-selected-preview{margin-top:.6rem;display:none;align-items:center;gap:.6rem;background:rgba(74,124,89,.07);border:1px solid rgba(74,124,89,.2);border-radius:7px;padding:.45rem .7rem;font-size:.8rem;color:var(--available);font-weight:500;}
+.photo-selected-preview img{width:40px;height:30px;object-fit:cover;border-radius:4px;flex-shrink:0;}
+.photo-gallery-note{font-size:.72rem;color:var(--stone);margin-top:.5rem;line-height:1.5;}
+
+/* TOAST */
+.toast{position:fixed;bottom:2rem;right:2rem;background:var(--forest);color:#fff;padding:.75rem 1.25rem;border-radius:10px;font-size:.875rem;font-weight:500;z-index:999;animation:slideUp .3s ease;box-shadow:0 8px 24px rgba(0,0,0,.2);}
+
+::-webkit-scrollbar{width:6px;}
+::-webkit-scrollbar-track{background:var(--cream);}
+::-webkit-scrollbar-thumb{background:var(--stone-light);border-radius:3px;}
+
+@media(max-width:640px){
+  .form-row{grid-template-columns:1fr;}
+  main{padding:1rem;}
+  .filters-bar,.tab-bar,header{padding-left:1rem;padding-right:1rem;}
+  .search-input{width:130px;}
+  .tab-btn{padding:.55rem .75rem;font-size:.78rem;}
+  .import-row{flex-wrap:wrap;}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">&#127969; HuntingHouse</div>
+  <div class="hdr-actions">
+    <div class="auth-wrap" id="authWrap">
+      <span class="auth-user" id="authUserLabel" style="display:none" title=""></span>
+      <button type="button" class="btn btn-ghost" id="btnSignIn">Sign in with Google</button>
+      <button type="button" class="btn btn-ghost" id="btnSignOut" style="display:none">Sign out</button>
+    </div>
+    <button class="btn btn-ghost" onclick="exportData()">&#8595; Export</button>
+    <button class="btn btn-primary" onclick="openModal()">+ Add House</button>
+  </div>
+</header>
+
+<div class="tab-bar">
+  <button class="tab-btn active" id="tab-houses" onclick="switchTab('houses')">&#127968; My Houses <span class="tab-badge" id="badge-houses">0</span></button>
+  <button class="tab-btn" id="tab-visits" onclick="switchTab('visits')">&#128197; Visits <span class="tab-badge blue" id="badge-visits">0</span></button>
+  <button class="tab-btn" id="tab-discard" onclick="switchTab('discard')">&#128465; Discarded <span class="tab-badge grey" id="badge-discard">0</span></button>
+</div>
+
+<!-- HOUSES PAGE -->
+<div id="page-houses">
+  <div class="filters-bar">
+    <span class="filter-label">Status</span>
+    <div class="filter-chips">
+      <button class="chip active" onclick="setFilter('all',this)">All</button>
+      <button class="chip" onclick="setFilter('available',this)">&#129001; Available</button>
+      <button class="chip" onclick="setFilter('pending',this)">&#129000; Pending</button>
+      <button class="chip" onclick="setFilter('sold',this)">&#9899; Sold</button>
+      <button class="chip" onclick="setFilter('withdrawn',this)">&#128308; Withdrawn</button>
+      <button class="chip" onclick="setFilter('favorite',this)">&#10084;&#65039; Favorites</button>
+    </div>
+    <select class="sort-select" id="sortSelect" onchange="renderCards()">
+      <option value="added">Sort: Recently Added</option>
+      <option value="price-asc">Sort: Price &#8593;</option>
+      <option value="price-desc">Sort: Price &#8595;</option>
+      <option value="rating">Sort: Rating</option>
+      <option value="year">Sort: Year Built</option>
+    </select>
+    <input class="search-input" type="text" id="searchInput" placeholder="Search address, tags..." oninput="renderCards()">
+  </div>
+  <main>
+    <div class="summary-bar" id="summaryBar"></div>
+    <div class="all-houses-map-wrap" id="allHousesMapWrap">
+      <div class="map-section-header">
+        <span class="map-section-title">&#128205; All houses on map</span>
+        <button type="button" class="map-toggle-btn" id="mapToggleBtn" onclick="toggleAllHousesMap()">Hide map</button>
+      </div>
+      <div id="map" class="all-houses-map-container" style="display:block;"></div>
+    </div>
+    <div class="houses-grid" id="housesGrid"></div>
+  </main>
+</div>
+
+<!-- VISITS PAGE -->
+<div id="page-visits" style="display:none;">
+  <main id="visitContent"></main>
+</div>
+
+<!-- DISCARD PAGE -->
+<div id="page-discard" style="display:none;">
+  <main>
+    <div class="discard-top">
+      <div class="summary-bar" id="discardSummary" style="margin:0"></div>
+      <button class="discard-clear-btn" onclick="clearAllDiscarded()">Clear All Permanently</button>
+    </div>
+    <div class="houses-grid" id="discardGrid"></div>
+  </main>
+</div>
+
+<!-- HOUSE MODAL -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modalTitle">Add New House</span>
+      <button class="modal-close" onclick="closeModal()">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- IMPORT BOX -->
+      <div class="import-box" id="importBox">
+        <div class="import-box-title">&#127968; Import from Zillow link</div>
+        <div class="import-row">
+          <input class="import-input" id="zillowUrlInput" placeholder="Paste Zillow listing URL (e.g. zillow.com/homedetails/...)" onkeydown="if(event.key==='Enter'){importFromZillow();}">
+          <button class="btn-lookup" id="zillowImportBtn" onclick="importFromZillow()">Import</button>
+        </div>
+        <div class="import-status" id="zillowImportStatus"></div>
+        <div class="import-box-title" style="margin-top:1rem;">&#128269; Validate & fill address <span>— OpenStreetMap (free)</span></div>
+        <div class="import-row">
+          <input class="import-input" id="importAddressInput" placeholder="e.g. 1296 Mandalay Ct SW, Lilburn GA" onkeydown="if(event.key==='Enter'){lookupAddress();}">
+          <button class="btn-lookup" id="lookupBtn" onclick="lookupAddress()">&#128269; Look up</button>
+        </div>
+        <div class="import-status" id="importStatus"></div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">Street Address *</label>
+          <input class="form-input" id="f-address" placeholder="123 Maple Street">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">City</label>
+          <input class="form-input" id="f-city" placeholder="Atlanta">
+        </div>
+        <div class="form-group">
+          <label class="form-label">State / Zip</label>
+          <input class="form-input" id="f-statezip" placeholder="GA 30301">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Price</label>
+          <input class="form-input" id="f-price" placeholder="$450,000">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <select class="form-select" id="f-status">
+            <option value="available">Available</option>
+            <option value="pending">Pending</option>
+            <option value="sold">Sold</option>
+            <option value="withdrawn">Withdrawn</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Bedrooms</label>
+          <input class="form-input" id="f-beds" type="number" placeholder="3" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Bathrooms</label>
+          <input class="form-input" id="f-baths" type="number" placeholder="2" min="0" step="0.5">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Sq Ft</label>
+          <input class="form-input" id="f-sqft" type="number" placeholder="1800">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Year Built</label>
+          <input class="form-input" id="f-year" type="number" placeholder="1998">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Lot Size</label>
+          <input class="form-input" id="f-lot" placeholder="0.25 acres">
+        </div>
+        <div class="form-group">
+          <label class="form-label">HOA</label>
+          <input class="form-input" id="f-hoa" placeholder="$33/mo or None">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Garage</label>
+          <select class="form-select" id="f-garage">
+            <option value="">None</option>
+            <option value="1-car">1-Car</option>
+            <option value="2-car">2-Car</option>
+            <option value="3-car">3-Car</option>
+            <option value="carport">Carport</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Listing URL</label>
+        <input class="form-input" id="f-url" placeholder="https://onehome.com/listing/...">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Photo URL</label>
+        <input class="form-input" id="f-photo" placeholder="https://...image.jpg">
+      </div>
+      <div class="form-group" id="mapPreviewWrap">
+        <label class="form-label">Location</label>
+        <div class="card-map-wrap" id="modalMapContainer" style="height:200px;border-radius:8px;overflow:hidden;"></div>
+        <div style="display:flex;gap:1.2rem;margin-top:.4rem;font-size:.78rem;color:var(--stone);align-items:center;flex-wrap:wrap;">
+          <span>Lat: <strong id="coord-lat-disp">—</strong></span>
+          <span>Lon: <strong id="coord-lon-disp">—</strong></span>
+          <button type="button" onclick="clearModalPin()" style="font-size:.72rem;background:none;border:1px solid var(--stone-light);border-radius:5px;padding:.15rem .5rem;cursor:pointer;font-family:inherit;">Clear pin</button>
+          <span style="opacity:.6;font-size:.7rem;">Click map to place pin</span>
+        </div>
+      </div>
+      <input type="hidden" id="f-lat">
+      <input type="hidden" id="f-lon">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Living room faces</label>
+          <select class="form-select" id="f-livingRoomFacing">
+            <option value="">—</option>
+            <option value="N">North</option>
+            <option value="S">South</option>
+            <option value="E">East</option>
+            <option value="W">West</option>
+            <option value="NE">NE</option>
+            <option value="NW">NW</option>
+            <option value="SE">SE</option>
+            <option value="SW">SW</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Main bedroom faces</label>
+          <select class="form-select" id="f-mainBedroomFacing">
+            <option value="">—</option>
+            <option value="N">North</option>
+            <option value="S">South</option>
+            <option value="E">East</option>
+            <option value="W">West</option>
+            <option value="NE">NE</option>
+            <option value="NW">NW</option>
+            <option value="SE">SE</option>
+            <option value="SW">SW</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Second bedroom faces</label>
+        <select class="form-select" id="f-secondBedroomFacing">
+          <option value="">—</option>
+          <option value="N">North</option>
+          <option value="S">South</option>
+          <option value="E">East</option>
+          <option value="W">West</option>
+          <option value="NE">NE</option>
+          <option value="NW">NW</option>
+          <option value="SE">SE</option>
+          <option value="SW">SW</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Clean backyard</label>
+          <div class="scale-row">
+            <span class="form-label" style="margin:0;text-transform:none;">1–5</span>
+            <div class="scale-dots" id="backyardScale">
+              <button type="button" class="scale-dot" data-v="0" onclick="setScale('backyard',0)">—</button>
+              <button type="button" class="scale-dot" data-v="1" onclick="setScale('backyard',1)">1</button>
+              <button type="button" class="scale-dot" data-v="2" onclick="setScale('backyard',2)">2</button>
+              <button type="button" class="scale-dot" data-v="3" onclick="setScale('backyard',3)">3</button>
+              <button type="button" class="scale-dot" data-v="4" onclick="setScale('backyard',4)">4</button>
+              <button type="button" class="scale-dot" data-v="5" onclick="setScale('backyard',5)">5</button>
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Neighborhood community</label>
+          <div class="scale-row">
+            <span class="form-label" style="margin:0;text-transform:none;">1–5</span>
+            <div class="scale-dots" id="neighborhoodScale">
+              <button type="button" class="scale-dot" data-v="0" onclick="setScale('neighborhood',0)">—</button>
+              <button type="button" class="scale-dot" data-v="1" onclick="setScale('neighborhood',1)">1</button>
+              <button type="button" class="scale-dot" data-v="2" onclick="setScale('neighborhood',2)">2</button>
+              <button type="button" class="scale-dot" data-v="3" onclick="setScale('neighborhood',3)">3</button>
+              <button type="button" class="scale-dot" data-v="4" onclick="setScale('neighborhood',4)">4</button>
+              <button type="button" class="scale-dot" data-v="5" onclick="setScale('neighborhood',5)">5</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">My Rating</label>
+        <div style="display:flex;gap:.4rem;font-size:1.6rem;">
+          <span class="rating-star" data-v="1" onclick="setRating(1)" style="cursor:pointer;">&#9734;</span>
+          <span class="rating-star" data-v="2" onclick="setRating(2)" style="cursor:pointer;">&#9734;</span>
+          <span class="rating-star" data-v="3" onclick="setRating(3)" style="cursor:pointer;">&#9734;</span>
+          <span class="rating-star" data-v="4" onclick="setRating(4)" style="cursor:pointer;">&#9734;</span>
+          <span class="rating-star" data-v="5" onclick="setRating(5)" style="cursor:pointer;">&#9734;</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tags <span style="font-weight:400;text-transform:none;">(Enter to add; color = concern level)</span></label>
+        <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-bottom:.4rem;">
+          <div class="tag-input-wrap" id="tagWrap" style="flex:1;min-width:140px;" onclick="document.getElementById('tagTextInput').focus()">
+            <input class="tag-text-input" id="tagTextInput" placeholder="e.g. close to main street">
+          </div>
+          <select class="tag-color-select" id="tagColorSelect" title="Tag weight: green=positive, red=concern">
+            <option value="default">Neutral</option>
+            <option value="positive">Positive</option>
+            <option value="orange">Minor concern</option>
+            <option value="red">Concern</option>
+            <option value="darkred">Major concern</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea class="form-textarea" id="f-notes" placeholder="First impressions, pros/cons..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" onclick="saveHouse()">Save House</button>
+    </div>
+  </div>
+</div>
+
+<!-- VISIT MODAL -->
+<div class="modal-overlay" id="visitModalOverlay">
+  <div class="modal sm">
+    <div class="modal-header">
+      <span class="modal-title">Log a Visit</span>
+      <button class="modal-close" onclick="closeVisitModal()">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <p class="modal-sub" id="visitModalSub"></p>
+      <div class="form-group">
+        <label class="form-label">Visit Type</label>
+        <select class="form-select" id="v-type">
+          <option value="upcoming">Planning to visit</option>
+          <option value="visited">Already visited</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Date *</label>
+          <input class="form-input" id="v-date" type="date">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Time (optional)</label>
+          <input class="form-input" id="v-time" type="time">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes (optional)</label>
+        <textarea class="form-textarea" id="v-notes" placeholder="Agent name, open house details..." style="min-height:65px"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeVisitModal()">Cancel</button>
+      <button class="btn-save" onclick="saveVisit()">Save Visit</button>
+    </div>
+  </div>
+</div>
+
+<!-- DUPLICATE WARNING MODAL -->
+<div class="modal-overlay" id="duplicateModalOverlay" style="display:none;z-index:201;">
+  <div class="modal sm">
+    <div class="modal-header">
+      <span class="modal-title">&#9888;&#65039; Possible duplicate</span>
+      <button class="modal-close" onclick="closeDuplicateModal()">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <p class="modal-sub" id="duplicateModalMsg"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeDuplicateModal()">Cancel</button>
+      <button class="btn-save" onclick="confirmAddAnyway()">Add anyway</button>
+    </div>
+  </div>
+</div>
+
+<!-- DISCARD MODAL -->
+<div class="modal-overlay" id="discardModalOverlay">
+  <div class="modal sm">
+    <div class="modal-header">
+      <span class="modal-title">Discard House</span>
+      <button class="modal-close" onclick="closeDiscardModal()">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <p class="modal-sub" id="discardModalSub"></p>
+      <div class="form-group">
+        <label class="form-label">Reason</label>
+        <select class="form-select" id="d-reason">
+          <option value="">Select a reason</option>
+          <option value="Too expensive">Too expensive</option>
+          <option value="Bad location">Bad location</option>
+          <option value="Too small">Too small</option>
+          <option value="Needs too much work">Needs too much work</option>
+          <option value="Already sold">Already sold</option>
+          <option value="Poor condition">Poor condition</option>
+          <option value="Changed my mind">Changed my mind</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Extra notes (optional)</label>
+        <textarea class="form-textarea" id="d-notes" placeholder="Any extra details..." style="min-height:60px"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeDiscardModal()">Cancel</button>
+      <button class="btn-discard-confirm" onclick="confirmDiscard()">Discard</button>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase (compat) — load before app script -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+
+<script>
+var firebaseConfig = {
+  apiKey: 'AIzaSyClxrVreeqgZ66lMU5TMM8vxOtKj8Q2X-w',
+  authDomain: 'huntinghouse-ff2b7.firebaseapp.com',
+  projectId: 'huntinghouse-ff2b7',
+  storageBucket: 'huntinghouse-ff2b7.firebasestorage.app',
+  messagingSenderId: '928128263172',
+  appId: '1:928128263172:web:871920c11251c984378151',
+  measurementId: 'G-T27JET0B5X'
+};
+
+var houses = JSON.parse(localStorage.getItem('huntinghouse_data') || '[]');
+var currentFilter = 'all';
+var editingId = null;
+var visitingId = null;
+var discardingId = null;
+/** True after user clicks "Clear pin" in modal — save may store null lat/lon */
+var modalCoordsExplicitlyCleared = false;
+var tempTags = [];
+var tempRating = 0;
+var pendingDuplicateData = null;
+var tempBackyard = 0;
+var tempNeighborhood = 0;
+var map = null;
+var markers = [];
+var mapGeocodeInFlight = {};
+var modalMap = null;
+var allHousesMapVisible = true;
+var selectedPhotoUrl = '';
+var EMOJIS = ['&#127968;','&#127969;','&#127960;','&#127959;','&#127794;','&#127807;'];
+
+var firebaseReady = false;
+var cloudSaveTimer = null;
+var cloudLoadDoneForUid = null;
+
+try {
+  if (typeof firebase !== 'undefined') {
+    firebase.initializeApp(firebaseConfig);
+    firebaseReady = true;
+  }
+} catch (e) {
+  console.warn('Firebase init failed:', e);
+}
+
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+
+function sanitizeHousesForFirestore(arr){
+  try { return JSON.parse(JSON.stringify(arr || [])); } catch (e) { return []; }
+}
+
+function save(){
+  localStorage.setItem('huntinghouse_data', JSON.stringify(houses));
+  scheduleCloudSave();
+}
+
+function scheduleCloudSave(){
+  if (!firebaseReady || typeof firebase === 'undefined') return;
+  var user = firebase.auth().currentUser;
+  if (!user) return;
+  clearTimeout(cloudSaveTimer);
+  cloudSaveTimer = setTimeout(function(){ pushHousesToCloud(user.uid); }, 700);
+}
+
+function pushHousesToCloud(uid){
+  if (!firebaseReady || !uid) return;
+  var payload = sanitizeHousesForFirestore(houses);
+  firebase.firestore().collection('users').doc(uid).set({
+    houses: payload,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  }, { merge: true   }).catch(function(err){
+    var code = (err && err.code) ? err.code : 'unknown';
+    console.warn('Firestore save failed:', code, err);
+    showToast('Cloud save failed: ' + code + '.' + firestoreLoadErrorHint(code));
+  });
+}
+
+function applyHousesFromCloud(list){
+  houses = Array.isArray(list) ? list : [];
+  localStorage.setItem('huntinghouse_data', JSON.stringify(houses));
+  renderCards();
+  renderMarkers();
+  if (document.getElementById('page-visits') && document.getElementById('page-visits').style.display !== 'none') renderVisits();
+  if (document.getElementById('page-discard') && document.getElementById('page-discard').style.display !== 'none') renderDiscard();
+  updateBadges();
+}
+
+function firestoreLoadErrorHint(code){
+  if (code === 'permission-denied') {
+    return ' Fix: Firebase Console → Firestore → Rules — allow read/write to users/{userId} only when request.auth.uid == userId.';
+  }
+  if (code === 'failed-precondition' || (code && String(code).indexOf('not-found') !== -1)) {
+    return ' Fix: Firebase Console → Build → Firestore Database → Create database (start in production, then paste rules).';
+  }
+  if (code === 'unavailable' || code === 'deadline-exceeded') {
+    return ' Fix: check network / VPN; retry in a moment.';
+  }
+  return ' Open DevTools (F12) → Console for full error.';
+}
+
+function loadHousesFromCloud(uid){
+  if (!firebaseReady || !uid) return;
+  var user = firebase.auth().currentUser;
+  function readDoc(){
+    return firebase.firestore().collection('users').doc(uid).get();
+  }
+  var tokenPromise = (user && typeof user.getIdToken === 'function')
+    ? user.getIdToken(true)
+    : Promise.resolve(null);
+  tokenPromise
+    .then(function(){ return readDoc(); })
+    .then(function(snap){
+      if (!snap.exists) {
+        if (houses.length) pushHousesToCloud(uid);
+        showToast('Cloud empty — uploaded this device’s list');
+        return;
+      }
+      var d = snap.data() || {};
+      if (d.houses && Array.isArray(d.houses)) {
+        applyHousesFromCloud(d.houses);
+        showToast('Loaded houses from your account');
+      } else if (houses.length) {
+        pushHousesToCloud(uid);
+      }
+    })
+    .catch(function(err){
+      var code = (err && err.code) ? err.code : 'unknown';
+      console.warn('Firestore load failed:', code, err);
+      showToast('Cloud load failed: ' + code + '.' + firestoreLoadErrorHint(code));
+    });
+}
+
+function updateAuthUI(){
+  var label = document.getElementById('authUserLabel');
+  var btnIn = document.getElementById('btnSignIn');
+  var btnOut = document.getElementById('btnSignOut');
+  if (!label || !btnIn || !btnOut) return;
+  if (!firebaseReady || typeof firebase === 'undefined') {
+    btnIn.style.display = 'none';
+    btnOut.style.display = 'none';
+    label.style.display = 'none';
+    return;
+  }
+  var u = firebase.auth().currentUser;
+  if (u) {
+    label.style.display = 'inline';
+    label.textContent = u.displayName || u.email || 'Signed in';
+    label.title = u.email || '';
+    btnIn.style.display = 'none';
+    btnOut.style.display = 'inline-block';
+  } else {
+    label.style.display = 'none';
+    btnIn.style.display = 'inline-block';
+    btnOut.style.display = 'none';
+  }
+}
+
+function signInWithGoogle(){
+  if (!firebaseReady || typeof firebase === 'undefined') {
+    showToast('Firebase not loaded');
+    return;
+  }
+  var provider = new firebase.auth.GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+  firebase.auth().signInWithPopup(provider).catch(function(err){
+    console.warn(err);
+    showToast(err.message || 'Sign-in failed');
+  });
+}
+
+function signOutFirebase(){
+  if (!firebaseReady || typeof firebase === 'undefined') return;
+  firebase.auth().signOut().then(function(){
+    showToast('Signed out — data stays on this device only');
+    updateAuthUI();
+  }).catch(function(e){ console.warn(e); });
+}
+
+if (firebaseReady && typeof firebase !== 'undefined') {
+  firebase.auth().onAuthStateChanged(function(user){
+    updateAuthUI();
+    if (user) {
+      if (cloudLoadDoneForUid !== user.uid) {
+        cloudLoadDoneForUid = user.uid;
+        loadHousesFromCloud(user.uid);
+      }
+    } else {
+      cloudLoadDoneForUid = null;
+    }
+  });
+}
+
+var _authBtnsBound = false;
+function bindAuthButtons(){
+  if (_authBtnsBound) return;
+  var bi = document.getElementById('btnSignIn');
+  var bo = document.getElementById('btnSignOut');
+  if (bi) bi.addEventListener('click', signInWithGoogle);
+  if (bo) bo.addEventListener('click', signOutFirebase);
+  _authBtnsBound = true;
+  updateAuthUI();
+}
+function showToast(msg){
+  var t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(function(){ if(t.parentNode) t.remove(); }, 2500);
+}
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function isOverdue(d){ return d ? new Date(d + 'T23:59:59') < new Date() : false; }
+function fmtDate(d, t){
+  if(!d) return '';
+  var dt = new Date(d + 'T12:00:00');
+  var s = dt.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
+  if(t){ var p=t.split(':'),h=parseInt(p[0]); s+=' at '+(h%12||12)+':'+p[1]+(h<12?' AM':' PM'); }
+  return s;
+}
+function pill(n,label,color){
+  return '<div class="stat-pill"><span class="stat-dot" style="background:'+color+'"></span><span class="count">'+n+'</span><span class="label">'+label+'</span></div>';
+}
+
+// TABS
+function switchTab(tab){
+  ['houses','visits','discard'].forEach(function(t){
+    document.getElementById('page-'+t).style.display = t===tab?'block':'none';
+    document.getElementById('tab-'+t).classList.toggle('active', t===tab);
+  });
+  if(tab==='visits') renderVisits();
+  if(tab==='discard') renderDiscard();
+  updateBadges();
+}
+function updateBadges(){
+  var active = houses.filter(function(h){ return !h.discarded; });
+  var discarded = houses.filter(function(h){ return h.discarded; });
+  var upcount = 0;
+  active.forEach(function(h){
+    (h.visits||[]).forEach(function(v){ if(v.type==='upcoming' && !isOverdue(v.date)) upcount++; });
+  });
+  document.getElementById('badge-houses').textContent = active.length;
+  document.getElementById('badge-visits').textContent = upcount;
+  document.getElementById('badge-discard').textContent = discarded.length;
+}
+
+// FILTERS
+function setFilter(status, el){
+  currentFilter = status;
+  document.querySelectorAll('.chip').forEach(function(c){ c.classList.remove('active'); });
+  el.classList.add('active');
+  renderCards();
+}
+
+// RENDER HOUSES
+function renderCards(){
+  var grid = document.getElementById('housesGrid');
+  var search = document.getElementById('searchInput').value.toLowerCase();
+  var sort = document.getElementById('sortSelect').value;
+  var active = houses.filter(function(h){ return !h.discarded; });
+  var filtered = active.filter(function(h){
+    if(currentFilter==='favorite') return h.favorite;
+    if(currentFilter!=='all') return h.status===currentFilter;
+    return true;
+  });
+  if(search) filtered = filtered.filter(function(h){
+    var tagStr = (h.tags||[]).map(function(t){ return typeof t==='object'&&t&&(t.t!==undefined||t.text)?(t.t||t.text):String(t); }).join(' ');
+    return (h.address+' '+h.city+' '+h.statezip+' '+tagStr).toLowerCase().indexOf(search) !== -1;
+  });
+  filtered.sort(function(a,b){
+    if(sort==='price-asc') return parsePrice(a.price)-parsePrice(b.price);
+    if(sort==='price-desc') return parsePrice(b.price)-parsePrice(a.price);
+    if(sort==='rating') return (b.rating||0)-(a.rating||0);
+    if(sort==='year') return (b.year||0)-(a.year||0);
+    return b.addedAt-a.addedAt;
+  });
+  document.getElementById('summaryBar').innerHTML =
+    pill(active.length,'Total','var(--forest)') +
+    pill(active.filter(function(h){return h.status==='available';}).length,'Available','var(--available)') +
+    pill(active.filter(function(h){return h.status==='pending';}).length,'Pending','var(--pending)') +
+    pill(active.filter(function(h){return h.favorite;}).length,'Favorites','#e05c8a');
+  updateBadges();
+  if(!filtered.length){
+    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">&#128269;</div>' +
+      '<div class="empty-title">'+(active.length?'No matches found':'Your list is empty')+'</div>' +
+      '<div class="empty-sub">'+(active.length?'Try a different filter':'Start adding houses you are interested in!')+'</div>' +
+      (!active.length?'<button class="btn btn-primary" onclick="openModal()" style="margin-top:.5rem">+ Add Your First House</button>':'')+
+      '</div>';
+    return;
+  }
+  grid.innerHTML = filtered.map(cardHTML).join('');
+  setTimeout(function(){ initCardMaps(); }, 50);
+  updateAllHousesMap();
+}
+function parsePrice(p){ return p?(parseInt(p.replace(/[^0-9]/g,''))||0):0; }
+
+function cardHTML(h){
+  var sLabels = {available:'Available',pending:'Pending',sold:'Sold',withdrawn:'Withdrawn'};
+  var selStatus = ['available','pending','sold','withdrawn'].indexOf(h.status) !== -1 ? h.status : 'available';
+  var emoji = '&#127968;';
+  var stars = h.rating ? '&#9733;'.repeat(h.rating)+'&#9734;'.repeat(5-h.rating) : '';
+  var tagList = normalizeTagList(h.tags);
+  var tagsHTML = tagList.map(function(t){ var c = (t.c||'default'); return '<span class="tag tag-'+c+'">'+escapeHtml(t.t||t)+'</span>'; }).join('');
+  var imgHTML = h.photo
+    ? '<div class="card-image"><img src="'+escapeHtml(h.photo)+'" alt="" onerror="this.style.display=\'none\'">'+emoji+'</div>'
+    : '<div class="card-image">'+emoji+'</div>';
+  var statusRow = '<span class="status-badge status-'+h.status+'">'+(sLabels[h.status]||h.status)+'</span>';
+  var nextVisit = getNextVisitBadge(h);
+  if(nextVisit) statusRow += nextVisit;
+  var visitBadges = '';
+  if((h.visits||[]).length){
+    var bs = h.visits.map(function(v){
+      var cls = v.type==='visited'?'visited':(isOverdue(v.date)?'overdue':'upcoming');
+      var lbl = v.type==='visited'?'Visited ':(isOverdue(v.date)?'Missed: ':'Planned: ');
+      return '<div class="visit-badge '+cls+'">'+lbl+fmtDate(v.date,v.time)+'</div>';
+    }).join('');
+    visitBadges = '<div class="visit-strip">'+bs+'</div>';
+  }
+  var directionsHTML = '';
+  if(h.livingRoomFacing||h.mainBedroomFacing||h.secondBedroomFacing){
+    if(h.livingRoomFacing) directionsHTML += '<div class="card-direction"><span>LR:</span><span>'+escapeHtml(h.livingRoomFacing)+'</span></div>';
+    if(h.mainBedroomFacing) directionsHTML += '<div class="card-direction"><span>MB:</span><span>'+escapeHtml(h.mainBedroomFacing)+'</span></div>';
+    if(h.secondBedroomFacing) directionsHTML += '<div class="card-direction"><span>B2:</span><span>'+escapeHtml(h.secondBedroomFacing)+'</span></div>';
+    directionsHTML = '<div class="card-directions">'+directionsHTML+'</div>';
+  }
+  var backyard = h.backyardRating != null && h.backyardRating > 0 ? h.backyardRating : 0;
+  var neighborhood = h.neighborhoodRating != null && h.neighborhoodRating > 0 ? h.neighborhoodRating : 0;
+  var scalesHTML = '';
+  if(backyard||neighborhood){
+    scalesHTML = '<div class="card-scales">';
+    if(backyard) scalesHTML += '<div class="card-scale"><span class="card-scale-label">Yard:</span><div class="card-scale-dots">'+[1,2,3,4,5].map(function(i){ return '<span class="card-scale-dot'+(i<=backyard?' filled':'')+'"></span>'; }).join('')+'</div></div>';
+    if(neighborhood) scalesHTML += '<div class="card-scale"><span class="card-scale-label">Neighborhood:</span><div class="card-scale-dots">'+[1,2,3,4,5].map(function(i){ return '<span class="card-scale-dot'+(i<=neighborhood?' filled':'')+'"></span>'; }).join('')+'</div></div>';
+    scalesHTML += '</div>';
+  }
+  var mapHTML = '';
+  if(h.lat!= null && h.lon != null && !isNaN(parseFloat(h.lat)) && !isNaN(parseFloat(h.lon))){
+    mapHTML = '<div class="card-map-wrap" data-lat="'+String(h.lat)+'" data-lon="'+String(h.lon)+'" data-inited="0"><div class="card-map-inner" id="map-'+String(h.id)+'"></div><a class="card-map-link" href="https://www.openstreetmap.org/?mlat='+h.lat+'&mlon='+h.lon+'#map=17/'+h.lat+'/'+h.lon+'" target="_blank">Open in Map</a></div>';
+  }
+  return '<div class="house-card">'+
+    imgHTML+
+    '<div class="status-row">'+statusRow+'</div>'+
+    '<button class="fav-btn" onclick="toggleFav(\''+escapeHtml(h.id)+'\')">'+(h.favorite?'&#10084;&#65039;':'&#129293;')+'</button>'+
+    (h.url?'<a class="src-link" href="'+escapeHtml(h.url)+'" target="_blank">Listing</a>':'')+
+    '<div class="card-body">'+
+      '<div class="card-address">'+(h.address||'No address')+'</div>'+
+      '<div class="card-location">'+([h.city,h.statezip].filter(Boolean).join(', ')||'Location not set')+'</div>'+
+      (h.price?'<div class="card-price">'+h.price+'</div>':'')+
+      (mapHTML)+
+      '<div class="card-specs">'+
+        (h.beds?'<span class="spec">'+h.beds+' bd</span>':'')+
+        (h.baths?'<span class="spec">'+h.baths+' ba</span>':'')+
+        (h.sqft?'<span class="spec">'+Number(h.sqft).toLocaleString()+' sqft</span>':'')+
+        (h.year?'<span class="spec">'+h.year+'</span>':'')+
+        (h.lot?'<span class="spec">'+h.lot+'</span>':'')+
+        (h.garage?'<span class="spec">'+h.garage+' garage</span>':'')+
+        (h.hoa?'<span class="spec">'+escapeHtml(h.hoa)+' HOA</span>':'')+
+      '</div>'+
+      directionsHTML+
+      scalesHTML+
+      (stars?'<div class="rating-stars"><span class="star">'+stars.split('').join('</span><span class="star">')+'</span></div>':'')+
+      (tagsHTML?'<div class="card-tags">'+tagsHTML+'</div>':'')+
+      visitBadges+
+      (h.notes?'<div class="card-notes">'+h.notes+'</div>':'')+
+      '<div class="card-footer">'+
+        '<button class="card-btn" onclick="editHouse(\''+escapeHtml(h.id)+'\')">Edit</button>'+
+        '<button class="card-btn blue" onclick="openVisitModal(\''+escapeHtml(h.id)+'\')">Visit</button>'+
+        '<div class="card-status-wrap">'+
+        '<select class="card-status-select" title="Listing status" onchange="setHouseStatus(\''+escapeHtml(h.id)+'\',this.value)">'+
+        '<option value="available"'+(selStatus==='available'?' selected':'')+'>Available</option>'+
+        '<option value="pending"'+(selStatus==='pending'?' selected':'')+'>Pending</option>'+
+        '<option value="sold"'+(selStatus==='sold'?' selected':'')+'>Sold</option>'+
+        '<option value="withdrawn"'+(selStatus==='withdrawn'?' selected':'')+'>Withdrawn</option>'+
+        '</select></div>'+
+        '<button class="card-btn danger" onclick="openDiscardModal(\''+escapeHtml(h.id)+'\')">Discard</button>'+
+      '</div>'+
+    '</div>'+
+  '</div>';
+}
+function escapeHtml(s){ if(!s) return ''; var d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+function normalizeTagList(tags){
+  if(!tags||!tags.length) return [];
+  return tags.map(function(t){ return typeof t==='object'&&t&&(t.t!==undefined||t.text) ? { t: t.t||t.text, c: t.c||t.color||'default' } : { t: String(t), c: 'default' }; });
+}
+function getNextVisitBadge(h){
+  var visits = (h.visits||[]).slice();
+  var upcoming = visits.filter(function(v){ return v.type==='upcoming' && !isOverdue(v.date); }).sort(function(a,b){ return a.date.localeCompare(b.date); });
+  var next = upcoming[0];
+  if(next){ var cls = 'upcoming'; return '<span class="visit-status-badge '+cls+'">&#128197; '+fmtDate(next.date,next.time)+'</span>'; }
+  var visited = visits.filter(function(v){ return v.type==='visited'; }).sort(function(a,b){ return b.date.localeCompare(a.date); });
+  if(visited[0]) return '<span class="visit-status-badge visited">&#10003; Visited</span>';
+  return '';
+}
+function toggleAllHousesMap(){
+  allHousesMapVisible = !allHousesMapVisible;
+  var cont = document.getElementById('map');
+  var btn  = document.getElementById('mapToggleBtn');
+  if(!cont || !btn) return;
+  cont.style.display = allHousesMapVisible ? 'block' : 'none';
+  btn.textContent    = allHousesMapVisible ? 'Hide map' : 'Show map';
+  if(allHousesMapVisible && map) setTimeout(function(){ map.invalidateSize(); renderMarkers(); }, 50);
+}
+function initMap(){
+  var cont = document.getElementById('map');
+  if(!cont || typeof L === 'undefined') return;
+  if(map){ try{ map.remove(); }catch(e){} map = null; }
+  cont.innerHTML = '';
+  map = L.map('map').setView([33.7490, -84.3880], 11);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors'
+  }).addTo(map);
+  renderMarkers();
+  ensureCoordsForAllHousesForMap();
+}
+function houseFullAddress(h){
+  return [h.address, h.city, h.statezip].filter(Boolean).join(', ').trim();
+}
+function hasValidCoords(h){
+  return h && h.lat != null && h.lon != null &&
+    !isNaN(parseFloat(h.lat)) && !isNaN(parseFloat(h.lon));
+}
+function ensureCoordsForAllHousesForMap(){
+  houses.filter(function(h){ return !h.discarded && !hasValidCoords(h); }).forEach(function(h){
+    var addr = houseFullAddress(h);
+    if(!addr || mapGeocodeInFlight[h.id]) return;
+    mapGeocodeInFlight[h.id] = true;
+    fetchCoordsForAddress(addr, function(lat, lon){
+      delete mapGeocodeInFlight[h.id];
+      if(lat != null && lon != null){
+        h.lat = lat;
+        h.lon = lon;
+        save();
+        renderMarkers();
+      }
+    });
+  });
+}
+function renderMarkers(){
+  if(!map || typeof L === 'undefined') return;
+  // Clear existing markers
+  markers.forEach(function(m){ try{ map.removeLayer(m); }catch(e){} });
+  markers = [];
+  var withCoords = houses.filter(function(h){ return !h.discarded && hasValidCoords(h); });
+  if(withCoords.length === 0) return;
+  var statusColors = {available:'#4A7C59', pending:'#E0B100', sold:'#8A8278', withdrawn:'#8A8278'};
+  withCoords.forEach(function(h){
+    var col = statusColors[h.status] || '#4A7C59';
+    var markerHtml = '';
+    if(h.favorite){
+      markerHtml = '<div style="width:36px;height:36px;border-radius:50%;background:#e05c8a;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;color:#fff;font-size:17px;line-height:1;">&#10084;</div>';
+    } else {
+      markerHtml = '<div style="width:24px;height:24px;border-radius:50%;background:'+col+';border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.45);box-sizing:border-box;"></div>';
+    }
+    var icon = L.divIcon({className:'',
+      html: markerHtml,
+      iconSize: h.favorite ? [36,36] : [24,24],
+      iconAnchor: h.favorite ? [18,18] : [12,12]});
+    var zlink = h.url ? '<br><a href="'+h.url+'" target="_blank" style="color:#2D4A3E;font-weight:600;">View listing</a>' : '';
+    var mk = L.marker([parseFloat(h.lat), parseFloat(h.lon)], {icon:icon}).addTo(map);
+    mk.bindPopup(
+      '<strong>'+(h.address||'')+'</strong><br>'+
+      (h.city||'')+' '+(h.statezip||'')+
+      (h.price ? '<br><strong>'+h.price+'</strong>' : '')+
+      zlink
+    );
+    markers.push(mk);
+  });
+  // Keep initial Atlanta view; do not auto-recenter from markers.
+}
+// Keep backward-compat alias
+function updateAllHousesMap(){ renderMarkers(); }
+function initCardMaps(){
+  if(typeof L === 'undefined') return;
+  document.querySelectorAll('.card-map-wrap[data-lat][data-lon][data-inited="0"]').forEach(function(wrap){
+    var lat = parseFloat(wrap.getAttribute('data-lat')); var lon = parseFloat(wrap.getAttribute('data-lon'));
+    if(isNaN(lat)||isNaN(lon)) return;
+    var inner = wrap.querySelector('.card-map-inner');
+    if(!inner) return;
+    wrap.setAttribute('data-inited','1');
+    var map = L.map(inner).setView([lat,lon], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ attribution: '&copy; OpenStreetMap' }).addTo(map);
+    L.marker([lat,lon]).addTo(map);
+  });
+}
+
+// RENDER VISITS
+function renderVisits(){
+  var container = document.getElementById('visitContent');
+  var active = houses.filter(function(h){ return !h.discarded; });
+  var upcoming=[], overdue=[], visited=[];
+  active.forEach(function(h){
+    (h.visits||[]).forEach(function(v){
+      var e={house:h,visit:v};
+      if(v.type==='visited') visited.push(e);
+      else if(isOverdue(v.date)) overdue.push(e);
+      else upcoming.push(e);
+    });
+  });
+  upcoming.sort(function(a,b){ return a.visit.date.localeCompare(b.visit.date); });
+  overdue.sort(function(a,b){ return b.visit.date.localeCompare(a.visit.date); });
+  visited.sort(function(a,b){ return b.visit.date.localeCompare(a.visit.date); });
+  if(!upcoming.length && !overdue.length && !visited.length){
+    container.innerHTML='<div class="empty-state"><div class="empty-icon">&#128197;</div><div class="empty-title">No visits logged yet</div><div class="empty-sub">Open any house card and click Visit to schedule or log a visit.</div></div>';
+    return;
+  }
+  var html='';
+  if(overdue.length){ html+='<div class="visit-section-title">Overdue / Missed</div><div class="visit-list">'+buildVisitDayFolders(overdue,'overdue',true)+'</div>'; }
+  if(upcoming.length){ html+='<div class="visit-section-title">Upcoming Visits</div><div class="visit-list">'+buildVisitDayFolders(upcoming,'upcoming',true)+'</div>'; }
+  if(visited.length){ html+='<div class="visit-section-title">Already Visited</div><div class="visit-list">'+buildVisitDayFolders(visited,'visited',false)+'</div>'; }
+  container.innerHTML=html;
+}
+function buildVisitDayFolders(entries, cls, openFirst){
+  var groups={};
+  entries.forEach(function(e){
+    var key=e.visit&&e.visit.date?e.visit.date:'No date';
+    if(!groups[key]) groups[key]=[];
+    groups[key].push(e);
+  });
+  var keys=Object.keys(groups);
+  if(cls==='visited' || cls==='overdue') keys.sort(function(a,b){ return b.localeCompare(a); });
+  else keys.sort(function(a,b){ return a.localeCompare(b); });
+  return keys.map(function(dateKey,idx){
+    var groupEntries=groups[dateKey].slice().sort(function(a,b){
+      var ta=(a.visit&&a.visit.time)||'';
+      var tb=(b.visit&&b.visit.time)||'';
+      return ta.localeCompare(tb);
+    });
+    var folderLabel=(dateKey==='No date')?'No date':fmtDate(dateKey).replace(/\sat\s.*$/,'');
+    var isOpen=(openFirst && idx===0)?' open':'';
+    return '<details class="visit-day-folder"'+isOpen+'>'+
+      '<summary><span class="visit-day-folder-title">&#128193; '+folderLabel+'</span><span class="visit-day-count">'+groupEntries.length+' visit'+(groupEntries.length>1?'s':'')+'</span></summary>'+
+      '<div class="visit-day-items">'+groupEntries.map(function(e){ return visitRowHTML(e,cls); }).join('')+'</div>'+
+    '</details>';
+  }).join('');
+}
+function visitRowHTML(e,cls){
+  var h=e.house,v=e.visit;
+  var prefix=cls==='visited'?'Visited: ':(cls==='overdue'?'Planned: ':'Planned: ');
+  var actions='';
+  if(cls==='upcoming'||cls==='overdue') actions+='<button class="visit-action-btn mark-done" onclick="markVisited(\''+h.id+'\',\''+v.id+'\')">Mark visited</button>';
+  actions+='<button class="visit-action-btn" onclick="removeVisit(\''+h.id+'\',\''+v.id+'\')">Remove</button>';
+  return '<div class="visit-row '+(cls==='overdue'?'overdue-row':'')+'">' +
+    '<div class="visit-row-emoji">&#127968;</div>'+
+    '<div class="visit-row-info"><div class="visit-row-address">'+(h.address||'No address')+'</div><div class="visit-row-sub">'+([h.city,h.statezip].filter(Boolean).join(', '))+(v.notes?' — '+v.notes:'')+'</div></div>'+
+    '<div class="visit-row-date '+cls+'">'+prefix+fmtDate(v.date,v.time)+'</div>'+
+    '<div class="visit-row-actions">'+actions+'</div>'+
+  '</div>';
+}
+function markVisited(hid,vid){
+  var h=houses.find(function(x){return x.id===hid;});
+  if(!h) return;
+  var v=(h.visits||[]).find(function(x){return x.id===vid;});
+  if(v){v.type='visited';if(!v.date)v.date=todayStr();}
+  save();renderVisits();renderCards();updateBadges();showToast('Marked as visited!');
+}
+function removeVisit(hid,vid){
+  var h=houses.find(function(x){return x.id===hid;});
+  if(!h) return;
+  h.visits=(h.visits||[]).filter(function(v){return v.id!==vid;});
+  save();renderVisits();renderCards();updateBadges();showToast('Visit removed');
+}
+
+// RENDER DISCARD
+function renderDiscard(){
+  var grid=document.getElementById('discardGrid');
+  var discarded=houses.filter(function(h){return h.discarded;});
+  document.getElementById('discardSummary').innerHTML=pill(discarded.length,'Discarded','var(--stone)');
+  if(!discarded.length){
+    grid.innerHTML='<div class="empty-state"><div class="empty-icon">&#128465;</div><div class="empty-title">Nothing discarded</div><div class="empty-sub">Houses you discard will appear here. You can always restore them.</div></div>';
+    return;
+  }
+  grid.innerHTML=discarded.map(discardCardHTML).join('');
+}
+function discardCardHTML(h){
+  var emoji='&#127968;';
+  var imgHTML=h.photo?'<div class="card-image"><img src="'+h.photo+'" alt="" onerror="this.style.display=\'none\'">'+emoji+'</div>':'<div class="card-image">'+emoji+'</div>';
+  var reason=(h.discardReason||h.discardNotes)?'<div class="discard-reason">'+(h.discardReason||'')+(h.discardNotes?' — '+h.discardNotes:'')+'</div>':'';
+  return '<div class="house-card discarded-card">'+imgHTML+
+    '<span class="status-badge status-discarded">Discarded</span>'+
+    '<div class="card-body">'+
+      '<div class="card-address">'+(h.address||'No address')+'</div>'+
+      '<div class="card-location">'+([h.city,h.statezip].filter(Boolean).join(', ')||'—')+'</div>'+
+      (h.price?'<div class="card-price">'+h.price+'</div>':'')+
+      '<div class="card-specs">'+(h.beds?'<span class="spec">'+h.beds+' bd</span>':'')+(h.baths?'<span class="spec">'+h.baths+' ba</span>':'')+(h.sqft?'<span class="spec">'+Number(h.sqft).toLocaleString()+' sqft</span>':'')+'</div>'+
+      reason+
+      '<div class="card-footer">'+
+        '<button class="card-btn restore" onclick="restoreHouse(\''+h.id+'\')">Restore</button>'+
+        '<button class="card-btn danger" onclick="permanentDelete(\''+h.id+'\')">Delete Forever</button>'+
+      '</div>'+
+    '</div>'+
+  '</div>';
+}
+
+// HOUSE MODAL
+function openModal(house){
+  house=house||null;
+  modalCoordsExplicitlyCleared = false;
+  editingId=house?house.id:null;
+  tempTags=house?normalizeTagList(house.tags||[]).slice():[];
+  tempRating=house?(house.rating||0):0;
+  selectedPhotoUrl='';
+  document.getElementById('modalTitle').textContent=house?'Edit House':'Add New House';
+  ['address','city','statezip','price','beds','baths','sqft','year','lot','hoa','url','photo','notes'].forEach(function(f){
+    var el=document.getElementById('f-'+f);
+    if(el) el.value=house?(house[f]||''):'';
+  });
+  document.getElementById('f-status').value=house?house.status:'available';
+  document.getElementById('f-garage').value=house?(house.garage||''):'';
+  document.getElementById('f-livingRoomFacing').value=house?(house.livingRoomFacing||''):'';
+  document.getElementById('f-mainBedroomFacing').value=house?(house.mainBedroomFacing||''):'';
+  document.getElementById('f-secondBedroomFacing').value=house?(house.secondBedroomFacing||''):'';
+  tempBackyard=house&&house.backyardRating!=null?Number(house.backyardRating):0;
+  tempNeighborhood=house&&house.neighborhoodRating!=null?Number(house.neighborhoodRating):0;
+  setScale('backyard',tempBackyard);
+  setScale('neighborhood',tempNeighborhood);
+  var latEl=document.getElementById('f-lat'); var lonEl=document.getElementById('f-lon');
+  if(latEl&&lonEl){ latEl.value=house&&house.lat!= null?String(house.lat):''; lonEl.value=house&&house.lon!= null?String(house.lon):''; }
+  renderTagChips();
+  setRating(tempRating);
+  updateModalMap();
+  // Import + geocode tools available for add and edit (location always adjustable)
+  document.getElementById('importBox').style.display='block';
+  document.getElementById('importStatus').className='import-status';
+  document.getElementById('importStatus').textContent='';
+  document.getElementById('importAddressInput').value='';
+  var zurl=document.getElementById('zillowUrlInput'); if(zurl) zurl.value='';
+  var zstat=document.getElementById('zillowImportStatus'); if(zstat){ zstat.className='import-status'; zstat.textContent=''; }
+  document.getElementById('modalOverlay').classList.add('open');
+  document.getElementById('modalOverlay').onclick=function(e){
+    if(e.target===document.getElementById('modalOverlay')) closeModal();
+  };
+}
+function closeModal(){
+  document.getElementById('modalOverlay').classList.remove('open');
+  editingId=null;tempTags=[];tempRating=0;tempBackyard=0;tempNeighborhood=0;selectedPhotoUrl='';
+  document.querySelectorAll('.prefilled').forEach(function(el){el.classList.remove('prefilled');});
+  if(modalMap){ try{ modalMap.remove(); }catch(e){} modalMap=null; }
+}
+var _modalMarker = null;
+function updateModalMap(){
+  if(typeof L === 'undefined') return;
+  var latEl = document.getElementById('f-lat');
+  var lonEl = document.getElementById('f-lon');
+  var lat = latEl && latEl.value ? parseFloat(latEl.value) : NaN;
+  var lon = lonEl && lonEl.value ? parseFloat(lonEl.value) : NaN;
+  var wrap = document.getElementById('mapPreviewWrap');
+  var cont = document.getElementById('modalMapContainer');
+  if(!wrap || !cont) return;
+  wrap.style.display = 'block';
+  var hasPin = !isNaN(lat) && !isNaN(lon);
+  var cLat = hasPin ? lat : 33.7490;
+  var cLon = hasPin ? lon : -84.3880;
+  var zoom = hasPin ? 15 : 10;
+  // Update coord labels
+  var ld = document.getElementById('coord-lat-disp');
+  var lo = document.getElementById('coord-lon-disp');
+  if(ld) ld.textContent = hasPin ? lat.toFixed(6) : '—';
+  if(lo) lo.textContent = hasPin ? lon.toFixed(6) : '—';
+  // Pan existing map instead of rebuilding
+  if(modalMap){
+    try{
+      modalMap.setView([cLat, cLon], zoom);
+      if(_modalMarker){ _modalMarker.remove(); _modalMarker = null; }
+      if(hasPin) _modalMarker = L.marker([lat, lon]).addTo(modalMap);
+      return;
+    }catch(e){ try{ modalMap.remove(); }catch(e2){} modalMap = null; _modalMarker = null; }
+  }
+  cont.innerHTML = '';
+  setTimeout(function(){
+    modalMap = L.map(cont).setView([cLat, cLon], zoom);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      {attribution:'&copy; <a href="https://openstreetmap.org">OpenStreetMap</a>'}).addTo(modalMap);
+    if(hasPin) _modalMarker = L.marker([lat, lon]).addTo(modalMap);
+    modalMap.on('click', function(e){
+      var nLat = e.latlng.lat.toFixed(6);
+      var nLon = e.latlng.lng.toFixed(6);
+      document.getElementById('f-lat').value = nLat;
+      document.getElementById('f-lon').value = nLon;
+      var ld2 = document.getElementById('coord-lat-disp');
+      var lo2 = document.getElementById('coord-lon-disp');
+      if(ld2) ld2.textContent = nLat;
+      if(lo2) lo2.textContent = nLon;
+      if(_modalMarker) _modalMarker.remove();
+      _modalMarker = L.marker([parseFloat(nLat), parseFloat(nLon)]).addTo(modalMap);
+    });
+  }, 80);
+}
+function clearModalPin(){
+  modalCoordsExplicitlyCleared = true;
+  document.getElementById('f-lat').value = '';
+  document.getElementById('f-lon').value = '';
+  var ld = document.getElementById('coord-lat-disp');
+  var lo = document.getElementById('coord-lon-disp');
+  if(ld) ld.textContent = '—'; if(lo) lo.textContent = '—';
+  if(_modalMarker){ try{ _modalMarker.remove(); }catch(e){} _modalMarker = null; }
+  if(modalMap) modalMap.setView([33.7490, -84.3880], 10);
+}
+function normalizeAddrForCompare(h){
+  if(!h) return '';
+  var s=((h.address||'')+' '+(h.city||'')+' '+(h.statezip||'')).toLowerCase();
+  s=s.replace(/\s+/g,' ').replace(/[.,#]/g,'').trim();
+  var abbr=[['\\bst\\b','street'],['\\bln\\b','lane'],['\\bave\\b','avenue'],['\\bdr\\b','drive'],['\\bct\\b','court'],['\\bblvd\\b','boulevard'],['\\brd\\b','road'],['\\bpl\\b','place']];
+  abbr.forEach(function(p){ s=s.replace(new RegExp(p[0],'g'),p[1]); });
+  return s;
+}
+function showDuplicateModal(dup){
+  var dupLabel=(dup.address||'')+(dup.city?', '+dup.city:'')+(dup.statezip?' '+dup.statezip:'');
+  var msg='This address may already be in your list:';
+  msg+='\n\n'+dupLabel;
+  if(dup.discarded) msg+='\n\n(It is currently in Discarded. You can restore it instead.)';
+  document.getElementById('duplicateModalMsg').innerHTML=msg.replace(/\n/g,'<br>');
+  document.getElementById('duplicateModalOverlay').style.display='flex';
+}
+function closeDuplicateModal(){
+  document.getElementById('duplicateModalOverlay').style.display='none';
+  pendingDuplicateData=null;
+}
+function confirmAddAnyway(){
+  closeDuplicateModal();
+  if(pendingDuplicateData) pendingDuplicateData=null;
+  doSaveHouse();
+}
+function findDuplicateHouse(addr,city,statezip,excludeId){
+  var inputNorm=normalizeAddrForCompare({address:addr,city:city,statezip:statezip});
+  if(!inputNorm) return null;
+  for(var i=0;i<houses.length;i++){
+    if(excludeId&&houses[i].id===excludeId) continue;
+    var existingNorm=normalizeAddrForCompare(houses[i]);
+    if(!existingNorm) continue;
+    if(inputNorm===existingNorm) return houses[i];
+    var inNum=inputNorm.match(/^\d+/); var exNum=existingNorm.match(/^\d+/);
+    if(inNum&&exNum&&inNum[0]===exNum[0]&&(inputNorm.indexOf(existingNorm)!==-1||existingNorm.indexOf(inputNorm)!==-1)) return houses[i];
+  }
+  return null;
+}
+function saveHouse(){
+  var address=document.getElementById('f-address').value.trim();
+  if(!address){alert('Please enter a street address.');return;}
+  var city=document.getElementById('f-city').value.trim();
+  var statezip=document.getElementById('f-statezip').value.trim();
+  var existing=editingId?houses.find(function(h){return h.id===editingId;}):null;
+  if(!editingId){
+    var dup=findDuplicateHouse(address,city,statezip,null);
+    if(dup){
+      pendingDuplicateData={address:address,city:city,statezip:statezip};
+      showDuplicateModal(dup);
+      return;
+    }
+  }
+  doSaveHouse();
+}
+function doSaveHouse(){
+  var address=document.getElementById('f-address').value.trim();
+  var latVal=document.getElementById('f-lat').value.trim();
+  var lonVal=document.getElementById('f-lon').value.trim();
+  var lat=latVal&&!isNaN(parseFloat(latVal))?parseFloat(latVal):null;
+  var lon=lonVal&&!isNaN(parseFloat(lonVal))?parseFloat(lonVal):null;
+  var existing=editingId?houses.find(function(h){return h.id===editingId;}):null;
+  if(editingId && existing && !modalCoordsExplicitlyCleared){
+    if((lat==null || lon==null) && hasValidCoords(existing)){
+      lat = parseFloat(existing.lat);
+      lon = parseFloat(existing.lon);
+    }
+  }
+  var data={
+    id:editingId||uid(),
+    address:address,
+    city:document.getElementById('f-city').value.trim(),
+    statezip:document.getElementById('f-statezip').value.trim(),
+    price:document.getElementById('f-price').value.trim(),
+    status:document.getElementById('f-status').value,
+    beds:document.getElementById('f-beds').value,
+    baths:document.getElementById('f-baths').value,
+    sqft:document.getElementById('f-sqft').value,
+    year:document.getElementById('f-year').value,
+    lot:document.getElementById('f-lot').value.trim(),
+    hoa:document.getElementById('f-hoa').value.trim(),
+    garage:document.getElementById('f-garage').value,
+    url:document.getElementById('f-url').value.trim(),
+    photo:document.getElementById('f-photo').value.trim(),
+    notes:document.getElementById('f-notes').value.trim(),
+    livingRoomFacing:document.getElementById('f-livingRoomFacing').value||'',
+    mainBedroomFacing:document.getElementById('f-mainBedroomFacing').value||'',
+    secondBedroomFacing:document.getElementById('f-secondBedroomFacing').value||'',
+    backyardRating:tempBackyard||null,
+    neighborhoodRating:tempNeighborhood||null,
+    tags:tempTags.slice(),
+    rating:tempRating,
+    lat:lat,
+    lon:lon,
+    visits:existing?(existing.visits||[]):[],
+    addedAt:existing?existing.addedAt:Date.now(),
+    favorite:existing?existing.favorite:false,
+    discarded:false
+  };
+  if(editingId){
+    var idx=houses.findIndex(function(h){return h.id===editingId;});
+    if(idx!==-1) houses[idx]=data;
+  } else { houses.unshift(data); }
+  // Auto-geocode if address provided but no coords yet
+  var _savedData = data;
+  if(_savedData.address && (_savedData.lat==null || _savedData.lon==null)){
+    fetchCoordsForAddress(geocodeQueriesFromZillowParsed({
+      address: _savedData.address,
+      city: _savedData.city,
+      statezip: _savedData.statezip,
+      url: _savedData.url || ''
+    }), function(lat, lon){
+      if(lat && lon){
+        var h = houses.find(function(x){ return x.id===_savedData.id; });
+        if(h){ h.lat=lat; h.lon=lon; save(); renderMarkers(); }
+      }
+    });
+  }
+  save();closeModal();renderCards();renderMarkers();
+  showToast(editingId?'House updated!':'House added!');
+}
+function editHouse(id){
+  var h=houses.find(function(x){return x.id===id;});
+  if(h) openModal(h);
+}
+function toggleFav(id){
+  var h=houses.find(function(x){return x.id===id;});
+  if(h){h.favorite=!h.favorite;save();renderCards();}
+}
+var HOUSE_STATUSES = ['available','pending','sold','withdrawn'];
+function setHouseStatus(id, status){
+  var h = houses.find(function(x){ return x.id === id; });
+  if(!h) return;
+  if(HOUSE_STATUSES.indexOf(status) === -1) return;
+  if(h.status === status) return;
+  h.status = status;
+  save();
+  renderCards();
+  showToast('Status: ' + status);
+}
+
+// VISIT MODAL
+function openVisitModal(id){
+  visitingId=id;
+  var h=houses.find(function(x){return x.id===id;});
+  if(!h) return;
+  document.getElementById('visitModalSub').textContent=h.address+(h.city?', '+h.city:'');
+  document.getElementById('v-type').value='upcoming';
+  document.getElementById('v-date').value=todayStr();
+  document.getElementById('v-time').value='';
+  document.getElementById('v-notes').value='';
+  document.getElementById('visitModalOverlay').classList.add('open');
+  document.getElementById('visitModalOverlay').onclick=function(e){
+    if(e.target===document.getElementById('visitModalOverlay')) closeVisitModal();
+  };
+}
+function closeVisitModal(){
+  document.getElementById('visitModalOverlay').classList.remove('open');
+  visitingId=null;
+}
+function saveVisit(){
+  var h=houses.find(function(x){return x.id===visitingId;});
+  if(!h) return;
+  var date=document.getElementById('v-date').value;
+  if(!date){alert('Please select a date.');return;}
+  if(!h.visits) h.visits=[];
+  h.visits.push({id:uid(),type:document.getElementById('v-type').value,date:date,time:document.getElementById('v-time').value,notes:document.getElementById('v-notes').value.trim()});
+  save();closeVisitModal();renderCards();updateBadges();showToast('Visit saved!');
+}
+
+// DISCARD MODAL
+function openDiscardModal(id){
+  discardingId=id;
+  var h=houses.find(function(x){return x.id===id;});
+  if(!h) return;
+  document.getElementById('discardModalSub').textContent='Move "'+h.address+'" to discarded? You can restore it anytime.';
+  document.getElementById('d-reason').value='';
+  document.getElementById('d-notes').value='';
+  document.getElementById('discardModalOverlay').classList.add('open');
+  document.getElementById('discardModalOverlay').onclick=function(e){
+    if(e.target===document.getElementById('discardModalOverlay')) closeDiscardModal();
+  };
+}
+function closeDiscardModal(){
+  document.getElementById('discardModalOverlay').classList.remove('open');
+  discardingId=null;
+}
+function confirmDiscard(){
+  var h=houses.find(function(x){return x.id===discardingId;});
+  if(!h) return;
+  h.discarded=true;h.discardReason=document.getElementById('d-reason').value;h.discardNotes=document.getElementById('d-notes').value.trim();h.discardedAt=Date.now();
+  save();closeDiscardModal();renderCards();updateBadges();showToast('Discarded — find it in the Discarded tab');
+}
+function restoreHouse(id){
+  var h=houses.find(function(x){return x.id===id;});
+  if(!h) return;
+  h.discarded=false;h.discardReason='';h.discardNotes='';
+  save();
+  renderDiscard();
+  renderCards();
+  renderMarkers();
+  updateBadges();
+  showToast('House restored!');
+}
+function permanentDelete(id){
+  if(!confirm('Permanently delete this house?')) return;
+  houses=houses.filter(function(h){return h.id!==id;});
+  save();renderDiscard();updateBadges();showToast('Deleted permanently');
+}
+function clearAllDiscarded(){
+  var n=houses.filter(function(h){return h.discarded;}).length;
+  if(!n) return;
+  if(!confirm('Permanently delete all '+n+' discarded houses?')) return;
+  houses=houses.filter(function(h){return !h.discarded;});
+  save();renderDiscard();updateBadges();showToast('Cleared '+n+' houses');
+}
+
+// TAGS (with color/weight)
+document.getElementById('tagTextInput').addEventListener('keydown',function(e){
+  if(e.key==='Enter'||e.key===','){
+    e.preventDefault();
+    var val=this.value.trim().replace(/,$/,'');
+    if(!val) return;
+    var color=document.getElementById('tagColorSelect').value||'default';
+    var exists=tempTags.some(function(x){ return (x.t||x)===val; });
+    if(!exists){ tempTags.push({t:val,c:color}); renderTagChips(); }
+    this.value='';
+  }
+});
+function removeTag(idx){ tempTags.splice(idx,1); renderTagChips(); }
+function renderTagChips(){
+  var wrap=document.getElementById('tagWrap');
+  var input=document.getElementById('tagTextInput');
+  if(!wrap) return;
+  wrap.innerHTML='';
+  tempTags.forEach(function(t,idx){
+    var chip=document.createElement('span');
+    var text=typeof t==='object'&&t&&(t.t!==undefined||t.text)?(t.t||t.text):String(t);
+    var c=(typeof t==='object'&&t&&t.c)?t.c:'default';
+    chip.className='tag-chip tag-'+c;
+    chip.innerHTML=escapeHtml(text)+'<button type="button" onclick="removeTag('+idx+')">x</button>';
+    wrap.appendChild(chip);
+  });
+  wrap.appendChild(input);
+}
+
+// SCALE (backyard, neighborhood)
+function setScale(which,val){
+  if(which==='backyard'){ tempBackyard=val; }
+  if(which==='neighborhood'){ tempNeighborhood=val; }
+  var scaleEl=document.getElementById(which==='backyard'?'backyardScale':'neighborhoodScale');
+  if(!scaleEl) return;
+  scaleEl.querySelectorAll('.scale-dot').forEach(function(d){
+    var v=parseInt(d.getAttribute('data-v'),10);
+    d.classList.toggle('filled',v>0&&v<=val);
+      d.textContent=v===0?'—':v;
+  });
+}
+
+// RATING
+function setRating(val){
+  tempRating=val;
+  document.querySelectorAll('.rating-star').forEach(function(s){
+    var v=parseInt(s.getAttribute('data-v'));
+    s.innerHTML=v<=val?'&#9733;':'&#9734;';
+    s.style.color=v<=val?'var(--clay)':'var(--stone-light)';
+  });
+}
+
+// EXPORT
+function exportData(){
+  if(!houses.length){alert('No houses to export yet!');return;}
+  var rows=[['Address','City','State/Zip','Price','Status','Beds','Baths','SqFt','Year','Lot','HOA','Garage','LR','MB','B2','Backyard','Neighborhood','Rating','Tags','Notes','Visits','Discarded','URL','Lat','Lon']];
+  houses.forEach(function(h){
+    var vs=(h.visits||[]).map(function(v){return v.type+':'+v.date+(v.time?'@'+v.time:'');}).join('; ');
+    var tagStr=(h.tags||[]).map(function(t){ var x=typeof t==='object'&&t?(t.t||t.text):t; var c=typeof t==='object'&&t&&t.c?t.c:''; return (x||'')+(c?':'+c:''); }).join('; ');
+    rows.push(['"'+(h.address||'')+'"','"'+(h.city||'')+'"','"'+(h.statezip||'')+'"','"'+(h.price||'')+'"',h.status,h.beds||'',h.baths||'',h.sqft||'',h.year||'','"'+(h.lot||'')+'"','"'+(h.hoa||'')+'"','"'+(h.garage||'')+'"',(h.livingRoomFacing||''),(h.mainBedroomFacing||''),(h.secondBedroomFacing||''),h.backyardRating||'',h.neighborhoodRating||'',h.rating||0,'"'+tagStr+'"','"'+(h.notes||'').replace(/"/g,'""')+'"','"'+vs+'"',h.discarded?'yes':'no','"'+(h.url||'')+'"',h.lat!= null?h.lat:'',h.lon!= null?h.lon:'']);
+  });
+  var csv=rows.map(function(r){return r.join(',');}).join('\n');
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download='huntinghouse-export.csv';
+  a.click();
+  showToast('CSV exported!');
+}
+
+// DEMO DATA
+function loadDemo(){
+  var tmrw=new Date();tmrw.setDate(tmrw.getDate()+2);var tmrwStr=tmrw.toISOString().slice(0,10);
+  var lastWk=new Date();lastWk.setDate(lastWk.getDate()-5);var lastWkStr=lastWk.toISOString().slice(0,10);
+  houses=[
+    {id:uid(),address:'142 Willow Creek Dr',city:'Decatur',statezip:'GA 30030',price:'$524,900',status:'available',beds:4,baths:3,sqft:2350,year:2005,lot:'0.3 acres',garage:'2-car',url:'',photo:'',notes:'Love the backyard. Great school district.',livingRoomFacing:'S',mainBedroomFacing:'E',secondBedroomFacing:'',backyardRating:4,neighborhoodRating:5,lat:33.7756,lon:-84.2963,tags:[{t:'good schools',c:'positive'},{t:'big yard',c:'positive'},{t:'close to main street',c:'darkred'}],rating:4,favorite:true,visits:[{id:uid(),type:'upcoming',date:tmrwStr,time:'14:00',notes:'Open house'}],addedAt:Date.now()-86400000*3,discarded:false},
+    {id:uid(),address:'87 Peachtree Hills Ave',city:'Atlanta',statezip:'GA 30305',price:'$749,000',status:'pending',beds:3,baths:2.5,sqft:1980,year:1998,lot:'0.15 acres',garage:'1-car',url:'',photo:'',notes:'Beautiful neighborhood but street noise is concerning.',livingRoomFacing:'W',mainBedroomFacing:'N',secondBedroomFacing:'NE',backyardRating:3,neighborhoodRating:4,lat:33.8304,lon:-84.3716,tags:[{t:'walkable',c:'positive'},{t:'updated kitchen',c:'default'}],rating:3,favorite:false,visits:[{id:uid(),type:'visited',date:lastWkStr,time:'11:00',notes:'Liked it but pricey'}],addedAt:Date.now()-86400000*7,discarded:false},
+    {id:uid(),address:'310 Magnolia Ln',city:'Smyrna',statezip:'GA 30082',price:'$389,500',status:'available',beds:3,baths:2,sqft:1600,year:2012,lot:'0.2 acres',garage:'2-car',url:'',photo:'',notes:'Good price. Move-in ready.',lat:33.8834,lon:-84.5144,tags:[{t:'move-in ready',c:'positive'},{t:'good value',c:'positive'}],rating:5,favorite:true,visits:[],addedAt:Date.now()-86400000,discarded:false},
+    {id:uid(),address:'55 Brookside Ct',city:'Marietta',statezip:'GA 30060',price:'$310,000',status:'withdrawn',beds:2,baths:1,sqft:1100,year:1985,lot:'0.1 acres',garage:'',url:'',photo:'',notes:'Too small.',tags:['too small'],rating:1,favorite:false,visits:[],addedAt:Date.now()-86400000*10,discarded:true,discardReason:'Too small',discardNotes:'Not enough space',discardedAt:Date.now()-86400000*2}
+  ];
+  save();
+}
+
+// ZILLOW IMPORT — parse URL for address, then fetch page to extract price/beds/baths/sqft/year/lot
+function parseZillowAddressFromUrl(url){
+  try{
+    var slug = extractZillowSlug(url);
+    if(!slug) return null;
+    var parts = slug.split('-');
+    if(parts.length < 4)
+      return { address:'', city:'', statezip:'', url:url, slug:slug };
+    var zip = parts.pop();
+    var state = parts.pop();
+    var city = parts.pop();
+    if(!/^\d{5}(-\d{4})?$/.test(zip) || !state || state.length !== 2)
+      return { address:'', city:'', statezip:'', url:url, slug:slug };
+    var address = parts.join(' ');
+    return { address:address, city:city, statezip:state+' '+zip, url:url, slug:slug };
+  }catch(e){ return null; }
+}
+function scrapeZillowHtml(html){
+  var out={price:'',beds:'',baths:'',sqft:'',year:'',lot:'',garage:'',hoa:'',photos:[]};
+  if(!html||typeof html!=='string') return out;
+  var priceMatch=html.match(/\$[\d,]+(?:\.\d{2})?/g);
+  if(priceMatch&&priceMatch.length){ out.price=priceMatch[0]; }
+  var bedsMatch=html.match(/(\d+)\s*beds?/i)||html.match(/(\d+)beds/i);
+  if(bedsMatch) out.beds=bedsMatch[1];
+  var bathsMatch=html.match(/(\d+(?:\.\d+)?)\s*baths?/i)||html.match(/(\d+(?:\.\d+)?)baths/i);
+  if(bathsMatch) out.baths=bathsMatch[1];
+  var sqftMatch=html.match(/([\d,]+)\s*sq\s*ft/i)||html.match(/([\d,]+)\s*sqft/i)||html.match(/([\d,]+)sqft/i);
+  if(sqftMatch) out.sqft=sqftMatch[1].replace(/,/g,'');
+  var yearMatch=html.match(/Built in\s*(\d{4})/i)||html.match(/[\"']yearBuilt[\"']\s*:\s*(\d{4})/)||html.match(/\b(\d{4})\s*Built/);
+  if(yearMatch) out.year=yearMatch[1];
+  var lotMatch=html.match(/([\d,]+(?:\.\d+)?)\s*[Ss]quare [Ff]eet/i)||html.match(/([\d,]+(?:\.\d+)?)\s*sq\s*ft\s*[Ll]ot/i);
+  if(lotMatch){ var sqft=parseFloat(lotMatch[1].replace(/,/g,'')); if(sqft>0) out.lot=(sqft/43560).toFixed(2)+' acres'; }
+  else{ var acMatch=html.match(/([\d.]+)\s*[Aa]cres?/); if(acMatch) out.lot=acMatch[1]+' acres'; }
+  var hoaMatch=html.match(/\$(\d+)\/mo\s*HOA/i)||html.match(/HOA[^$]*\$(\d+)\/mo/i)||html.match(/\$(\d+)\/mo/i);
+  if(hoaMatch) out.hoa='$'+hoaMatch[1]+'/mo';
+  if(/two-car garage|2-car garage|2 car garage/i.test(html)) out.garage='2-car';
+  else if(/one-car garage|1-car garage|1 car garage/i.test(html)) out.garage='1-car';
+  else if(/three-car|3-car|3 car garage/i.test(html)) out.garage='3-car';
+  else if(/carport/i.test(html)) out.garage='carport';
+  var photoUrls=html.match(/https?:\/\/[^"'\s<>]+\.(?:jpg|jpeg|png|webp)(?:\?[^"'\s<>]*)?/gi)||[];
+  photoUrls=photoUrls.filter(function(u){ return (u.indexOf('zillow')!==-1||u.indexOf('cloudfront')!==-1||u.indexOf('amazonaws')!==-1)&&u.indexOf('logo')===-1&&u.indexOf('icon')===-1; });
+  var seen={}; photoUrls=photoUrls.filter(function(u){ var k=u.split('?')[0]; if(seen[k]) return false; seen[k]=1; return true; }).slice(0,8);
+  if(photoUrls.length) out.photos=photoUrls;
+  return out;
+}
+function importFromZillow(){
+  var urlInput=document.getElementById('zillowUrlInput').value.trim();
+  if(!urlInput){ alert('Please paste a Zillow listing URL.'); return; }
+  var url=urlInput;
+  if(url.indexOf('http')!==0) url='https://'+url.replace(/^www\./,'www.');
+  if(url.indexOf('zillow.com')===-1){ alert('URL should be a Zillow listing (e.g. zillow.com/homedetails/...).'); return; }
+  var statusEl=document.getElementById('zillowImportStatus');
+  var btn=document.getElementById('zillowImportBtn');
+  statusEl.className='import-status loading';
+  statusEl.textContent='Parsing URL and fetching listing...';
+  btn.disabled=true;
+  var parsed=parseZillowAddressFromUrl(url);
+  if(parsed){
+    document.getElementById('f-address').value=parsed.address||'';
+    document.getElementById('f-city').value=parsed.city||'';
+    document.getElementById('f-statezip').value=parsed.statezip||'';
+    document.getElementById('f-url').value=url;
+    ['f-address','f-city','f-statezip','f-url'].forEach(function(id){ var el=document.getElementById(id); if(el) el.classList.add('prefilled'); });
+  }
+  var proxyUrl='https://api.allorigins.win/raw?url='+encodeURIComponent(url);
+  fetch(proxyUrl).then(function(r){ return r.text(); })
+  .then(function(html){
+    var scraped=scrapeZillowHtml(html);
+    if(scraped.price) document.getElementById('f-price').value=scraped.price;
+    if(scraped.beds) document.getElementById('f-beds').value=scraped.beds;
+    if(scraped.baths) document.getElementById('f-baths').value=scraped.baths;
+    if(scraped.sqft) document.getElementById('f-sqft').value=scraped.sqft;
+    if(scraped.year) document.getElementById('f-year').value=scraped.year;
+    if(scraped.lot) document.getElementById('f-lot').value=scraped.lot;
+    if(scraped.hoa) document.getElementById('f-hoa').value=scraped.hoa;
+    if(scraped.garage) document.getElementById('f-garage').value=scraped.garage;
+    if(scraped.photos&&scraped.photos.length){
+      document.getElementById('f-photo').value=scraped.photos[0];
+      document.getElementById('f-photo').classList.add('prefilled');
+    }
+    statusEl.className='import-status success';
+    var msg='Address and listing details filled.';
+    if(scraped.photos&&scraped.photos.length) msg+=' First photo set (Zillow URLs may expire or not load).';
+    var msgTailResolve = ' Resolving map location…';
+    statusEl.textContent=msg+msgTailResolve;
+    var geoParsed = parsed || parseZillowAddressFromUrl(url);
+    if(geoParsed && (geoParsed.slug || geoParsed.address)){
+      fetchCoordsForAddress(geocodeQueriesFromZillowParsed(geoParsed), function(lat, lon){
+        if(lat != null && lon != null){
+          applyCoordsToForm(lat, lon);
+          statusEl.textContent = msg+' Map location found.';
+        } else {
+          statusEl.textContent = msg+' Could not geocode from URL; use "Look up" or set pin on map.';
+        }
+        updateModalMap();
+      });
+    } else updateModalMap();
+  })
+  .catch(function(e){
+    if(parsed){
+      statusEl.className='import-status success';
+      statusEl.textContent='Address and URL filled from link. Could not fetch full page (Zillow may block). Resolving map location…';
+      fetchCoordsForAddress(geocodeQueriesFromZillowParsed(parsed), function(lat, lon){
+        if(lat != null && lon != null){
+          applyCoordsToForm(lat, lon);
+          statusEl.textContent='Address from URL; map location found. Listing details may be incomplete.';
+        } else {
+          statusEl.textContent='Address from URL; map location not found — use "Look up" or place pin manually.';
+        }
+        updateModalMap();
+      });
+    }
+    else{ statusEl.className='import-status error'; statusEl.textContent='Could not parse URL or fetch page. Paste a full Zillow homedetails URL and try again.'; }
+    console.error(e);
+  })
+  .finally(function(){ btn.disabled=false; });
+}
+
+function augmentQueryForGeorgiaBias(addr){
+  var query = String(addr||'').trim();
+  if(!query) return query;
+  var lower = query.toLowerCase();
+  if(lower.indexOf('ga')===-1 && lower.indexOf('georgia')===-1 && lower.indexOf('atlanta')===-1 &&
+     lower.indexOf(' usa')===-1 && lower.indexOf('united states')===-1){
+    query = query + ', Atlanta, GA';
+  }
+  return query;
+}
+function nominatimSearchOne(query, cb){
+  var q = String(query||'').trim();
+  if(!q){ cb(null, null); return; }
+  q = augmentQueryForGeorgiaBias(q);
+  var url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&q='+encodeURIComponent(q);
+  fetch(url)
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    if(data && data[0]){ cb(String(data[0].lat), String(data[0].lon)); }
+    else { cb(null, null); }
+  })
+  .catch(function(e){ console.warn('Geocoding failed:', e); cb(null, null); });
+}
+function fetchCoordsSequential(queries, cb){
+  var list = (queries||[]).map(function(q){ return String(q||'').trim(); }).filter(Boolean);
+  var i = 0;
+  function next(){
+    if(i >= list.length){ cb(null, null); return; }
+    var q = list[i++];
+    nominatimSearchOne(q, function(lat, lon){
+      if(lat && lon) cb(lat, lon);
+      else next();
+    });
+  }
+  next();
+}
+function fetchCoordsForAddress(addr,cb){
+  var queries = Array.isArray(addr) ? addr : [addr];
+  fetchCoordsSequential(queries, cb);
+}
+/** Slug between homedetails/ and /DIGITS_zpid/ or first path segment (reference-style). */
+function extractZillowSlug(url){
+  if(!url) return '';
+  var s = String(url).trim();
+  var m = s.match(/homedetails\/([^\/\?#]+)\/(\d+)_zpid/i);
+  if(m && m[1]) return m[1];
+  m = s.match(/homedetails\/(.*?)\/(\d+)_zpid/i);
+  if(m && m[1]) return m[1];
+  m = s.match(/homedetails\/([^\/\?#]+)/i);
+  if(m && m[1]) return m[1];
+  return '';
+}
+function geocodeQueriesFromZillowParsed(parsed){
+  var queries = [];
+  var line = [parsed.address, parsed.city, parsed.statezip].filter(Boolean).join(', ');
+  if(line) queries.push(line);
+  var slug = parsed.slug || extractZillowSlug(parsed.url || '');
+  if(slug){
+    var spaced = slug.replace(/-/g, ' ').replace(/\s+/g, ' ').trim();
+    if(spaced){
+      queries.push(spaced + ', USA');
+      queries.push(spaced);
+    }
+  }
+  var out = []; var seen = {};
+  queries.forEach(function(q){
+    var k = q.toLowerCase();
+    if(!seen[k]){ seen[k] = 1; out.push(q); }
+  });
+  return out;
+}
+function applyCoordsToForm(lat, lon){
+  if(lat == null || lon == null) return;
+  var latEl = document.getElementById('f-lat');
+  var lonEl = document.getElementById('f-lon');
+  if(latEl) latEl.value = String(lat);
+  if(lonEl) lonEl.value = String(lon);
+  if(typeof updateModalMap === 'function') updateModalMap();
+}
+
+// ADDRESS LOOKUP (Nominatim / OpenStreetMap — free, no API key)
+function lookupAddress() {
+  var addrInput = document.getElementById('importAddressInput');
+  var addr = addrInput ? addrInput.value.trim() : '';
+  
+  if (!addr) {
+    alert('Please enter an address to look up.');
+    return;
+  }
+
+  var btn = document.getElementById('lookupBtn');
+  var status = document.getElementById('importStatus');
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Looking up...'; }
+  if (status) {
+    status.className = 'import-status loading';
+    status.textContent = 'Searching OpenStreetMap...';
+  }
+
+  // Ensure query is properly encoded
+  var url = 'https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(addr) + '&addressdetails=1&limit=1';
+
+  fetch(url, {
+      headers: { "Accept-Language": "en-US,en;q=0.9" } // Helps bypass some bot-filters
+  })
+  .then(function(r) { 
+      if (!r.ok) throw new Error('Network error: ' + r.status);
+      return r.json(); 
+  })
+  .then(function(results) {
+    if (!results || !results.length) {
+      if (status) {
+        status.className = 'import-status error';
+        status.textContent = 'Address not found. Try a more specific address (include city and state).';
+      }
+      return;
+    }
+
+    var r = results[0];
+    var addrParts = r.address || {};
+
+    // Build the address string
+    var street = [addrParts.house_number, addrParts.road].filter(Boolean).join(' ');
+    if (!street.length) street = addrParts.house_number || addrParts.road || addrParts.suburb || r.display_name.split(',')[0] || '';
+    
+    var city = addrParts.city || addrParts.town || addrParts.village || addrParts.municipality || addrParts.county || '';
+    var state = addrParts.state || '';
+    var zip = addrParts.postcode || '';
+    var statezip = [state, zip].filter(Boolean).join(' ');
+
+    // Helper to safely set form values
+    function safeSet(id, val) {
+        var el = document.getElementById(id);
+        if (el) {
+            el.value = val;
+            el.classList.add('prefilled');
+        }
+    }
+
+    safeSet('f-address', street.trim());
+    safeSet('f-city', city);
+    safeSet('f-statezip', statezip.trim());
+    safeSet('f-lat', r.lat || '');
+    safeSet('f-lon', r.lon || '');
+
+    // Delay map update slightly so CSS has time to apply
+    setTimeout(function() {
+        if (typeof updateModalMap === "function") updateModalMap();
+    }, 150);
+
+    if (status) {
+      status.className = 'import-status success';
+      status.textContent = 'Address validated and filled. Add details manually below.';
+    }
+  })
+  .catch(function(e) {
+    if (status) {
+      status.className = 'import-status error';
+      status.textContent = 'Could not fetch: ' + (e.message || 'network error') + '. Fill in manually.';
+    }
+    console.error('Geocoding Error:', e);
+  })
+  .finally(function() {
+    if (btn) { btn.disabled = false; btn.textContent = 'Look up'; }
+  });
+}
+
+// INIT
+bindAuthButtons();
+if(!houses.length) loadDemo();
+renderCards();
+updateBadges();
+</script>
+
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="" onload="initMap()"></script>
+
+</body>
+</html>
